@@ -35,7 +35,7 @@ option_list <- list(
   ),
   make_option("--nearest_matching_var",
     type = "character",
-    default = "age,length_followup",
+    default = "age_at_first_diagnosisx,length_followupx",
     help = glue(
       "Matching variables by nearest  [default = ",
       "%default]"
@@ -83,8 +83,15 @@ file_paths <- get_files(
 
 ## check that outcome exists in both datasets
 cli_progress_step("checking that outcome exists in both phenomes...")
-common_codes <- fread("data/public/phecodex_20plus.csv")[plus20 == 1, phecode]
-if (!opt$outcome %in% common_codes) stop("outcome is not defined in AOU, MGI, and UKB. stopping.")
+common_codes_tab <- fread("data/public/phecodex_20plus.csv")
+common_codes <- common_codes_tab[aou >= 20 & mgi >= 20, phecode]
+also_ukb <- opt$outcome %in% common_codes_tab[ukb >= 20, phecode]
+if (!also_ukb) {
+  cli_alert("outcome is not defined in UKB. skipping UKB analyses...")
+} else {
+  common_codes_ukb <- common_codes_tab[ukb >= 20, phecode]
+}
+if (!opt$outcome %in% common_codes) stop("outcome is not defined in MGI and AOU. stopping.")
 
 ## confirm file structure for a given outcome exists - if not, create paths
 ### mgi
@@ -98,14 +105,15 @@ dir.create(glue("data/private/mgi/{opt$mgi_version}/{opt$outcome}/time_restricte
 
 
 ### ukb
-check_folder_structure(
-  cohort          = "ukb",
-  data_version    = opt$ukb_version,
-  outcome_phecode = opt$outcome
-)
+if (also_ukb) {
+  check_folder_structure(
+    cohort          = "ukb",
+    data_version    = opt$ukb_version,
+    outcome_phecode = opt$outcome
+  )
 
-dir.create(glue("data/private/ukb/{opt$ukb_version}/{opt$outcome}/time_restricted_phenomes/"), recursive = TRUE)
-
+  dir.create(glue("data/private/ukb/{opt$ukb_version}/{opt$outcome}/time_restricted_phenomes/"), recursive = TRUE)
+}
 
 
 
@@ -126,18 +134,19 @@ mgi_full_phe  <- qread(glue("data/private/mgi/{opt$mgi_version}/MGI_FULL_PHECODE
 mgi_weights <- qread(glue("data/private/mgi/{opt$mgi_version}/weightsx_{opt$mgi_version}_comb.qs"))
 
 ## ukb
-cli_progress_step("loading ukb data")
-### demographics
-ukb_demo <- qread(glue("data/private/ukb/{opt$ukb_version}/datax_{opt$ukb_version}_comb.qs"))
-ukb_demo <- ukb_demo[complete.cases(ukb_demo), ]
+if (also_ukb) {
+  cli_progress_step("loading ukb data")
+  ### demographics
+  ukb_demo <- qread(glue("data/private/ukb/{opt$ukb_version}/datax_{opt$ukb_version}_comb.qs"))
+  ukb_demo <- ukb_demo[complete.cases(ukb_demo), ]
 
-### phecode-dsb data
-ukb_full_phe  <- qread(glue("data/private/ukb/{opt$ukb_version}/UKB_FULL_PHECODEX_DSB_{opt$ukb_version}.qs")) |>
-  dplyr::filter(id %in% ukb_demo[, id] & phecode %in% common_codes)
+  ### phecode-dsb data
+  ukb_full_phe  <- qread(glue("data/private/ukb/{opt$ukb_version}/UKB_FULL_PHECODEX_DSB_{opt$ukb_version}.qs")) |>
+    dplyr::filter(id %in% ukb_demo[, id] & phecode %in% common_codes_ukb)
 
-### ukb weights
-ukb_weights <- fread("/net/junglebook/home/mmsalva/createUKBphenome/data/UKBSelectionWeights.tab")
-
+  ### ukb weights
+  ukb_weights <- fread("/net/junglebook/home/mmsalva/createUKBphenome/data/UKBSelectionWeights.tab")
+}
 source("R/tr_prepare-utils.R")
 
 # prepare matched data
@@ -197,63 +206,65 @@ qsave(
 
 
 ## ukb
-ukb_prepped_data <- prepare_matched_phenomes(
-  phe_dsb_data          = ukb_full_phe,
-  demo_data             = ukb_demo |>
-    mutate(
-      length_followup = last_dsb - first_dsb,
-      female = as.numeric(sex == "Female")
-    ) |>
-    rename(age = age_at_first_diagnosis),
-  outcome               = opt$outcome,
-  case_definition       = "first",
-  malignant_phecodes    = cancer_phecodesx[keep == 1, phecode],
-  specific_phecodes     = cancer_phecodesx[specific == 1, phecode],
-  matched               = TRUE,
-  match_ratio           = opt$matching_ratio,
-  match_caliper         = opt$matching_caliper,
-  nearest_vars          = strsplit(opt$nearest_matching_var, ",")[[1]],
-  exact_vars            = strsplit(opt$exact_matching_var, ",")[[1]],
-  control_definition    = "no_cancer",
-  time_thresholds       = as.numeric(strsplit(opt$time_thresholds, ",")[[1]]),
-  exclude_other_cancers = TRUE
-)
-
-# time restricted pim
-walk(
-  seq_along(time_thresholds),
-  \(x) qsave(ukb_prepped_data$tr_pim[[x]], glue(
-    "data/private/ukb/{opt$ukb_version}/",
-    "{opt$outcome}/time_restricted_phenomes/ukb_",
-    "{opt$ukb_version}_{opt$outcome}_",
-    "t{time_thresholds[x]}_pim_",
-    "r{opt$matching_ratio}.qs"
-  ))
-)
-
-# match data
-qsave(
-  ukb_prepped_data$match_data,
-  glue(
-    "data/private/ukb/{opt$ukb_version}/",
-    "{opt$outcome}/ukb_",
-    "{opt$ukb_version}_{opt$outcome}_",
-    "match_data_",
-    "r{opt$matching_ratio}.qs"
+if (also_ukb) {
+  ukb_prepped_data <- prepare_matched_phenomes(
+    phe_dsb_data          = ukb_full_phe,
+    demo_data             = ukb_demo |>
+      mutate(
+        length_followupx = round((last_dsbx - first_dsbx) / 365.25),
+        female = fcase(sex == "Female", 1, sex == "Male", 0)
+      ) |>
+      rename(age = age_at_first_diagnosis),
+    outcome               = opt$outcome,
+    case_definition       = "first",
+    malignant_phecodes    = cancer_phecodesx[keep == 1, phecode],
+    specific_phecodes     = cancer_phecodesx[specific == 1, phecode],
+    matched               = TRUE,
+    match_ratio           = opt$matching_ratio,
+    match_caliper         = opt$matching_caliper,
+    nearest_vars          = strsplit(opt$nearest_matching_var, ",")[[1]],
+    exact_vars            = strsplit(opt$exact_matching_var, ",")[[1]],
+    control_definition    = "no_cancer",
+    time_thresholds       = as.numeric(strsplit(opt$time_thresholds, ",")[[1]]),
+    exclude_other_cancers = TRUE
   )
-)
 
-# case data
-qsave(
-  x = ukb_prepped_data$case_data,
-  file = glue(
-    "data/private/ukb/{opt$ukb_version}/",
-    "{opt$outcome}/ukb_",
-    "{opt$ukb_version}_{opt$outcome}_",
-    "case_data_",
-    "r{opt$matching_ratio}.qs"
+  # time restricted pim
+  walk(
+    seq_along(time_thresholds),
+    \(x) qsave(ukb_prepped_data$tr_pim[[x]], glue(
+      "data/private/ukb/{opt$ukb_version}/",
+      "{opt$outcome}/time_restricted_phenomes/ukb_",
+      "{opt$ukb_version}_{opt$outcome}_",
+      "t{time_thresholds[x]}_pim_",
+      "r{opt$matching_ratio}.qs"
+    ))
   )
-)
+
+  # match data
+  qsave(
+    ukb_prepped_data$match_data,
+    glue(
+      "data/private/ukb/{opt$ukb_version}/",
+      "{opt$outcome}/ukb_",
+      "{opt$ukb_version}_{opt$outcome}_",
+      "match_data_",
+      "r{opt$matching_ratio}.qs"
+    )
+  )
+
+  # case data
+  qsave(
+    x = ukb_prepped_data$case_data,
+    file = glue(
+      "data/private/ukb/{opt$ukb_version}/",
+      "{opt$outcome}/ukb_",
+      "{opt$ukb_version}_{opt$outcome}_",
+      "case_data_",
+      "r{opt$matching_ratio}.qs"
+    )
+  )
+}
 
 # phewas
 ## mgi
@@ -269,7 +280,7 @@ mgi_phewas_res <- map(
       exposures  = mgi_phecodes,
       covariates = c("age", "length_followup"),
       method     = "glm",
-      workers    = 16
+      workers    = min(c(16, detectCores() - 1))
     )
   }
 ) |> set_names(names(mgi_prepped_data$tr_pim))
@@ -310,62 +321,121 @@ walk(
   )
 )
 
-## ukb
-ukb_phewas_res <- map(
-  seq_along(ukb_prepped_data$tr_pim),
+### train
+mgi_train_phewas_res <- map(
+  seq_along(mgi_prepped_data$tr_pim),
   \(x) {
     cli_progress_step(paste0("running phewas for time threshold ", time_thresholds[x]))
-    ukb_data <- ukb_prepped_data$tr_pim[[x]]
-    ukb_phecodes <- names(ukb_data)[names(ukb_data) %in% ms::pheinfox[, phecode]]
-    ukb_phewas_res <- ms::map_phewas(
-      data       = ukb_data,
+    mgi_data <- mgi_prepped_data$tr_pim[[x]][group == "train", ]
+    mgi_phecodes <- names(mgi_data)[names(mgi_data) %in% ms::pheinfox[, phecode]]
+    mgi_phewas_res <- ms::map_phewas(
+      data       = mgi_data,
       outcome    = "case",
-      exposures  = ukb_phecodes,
+      exposures  = mgi_phecodes,
       covariates = c("age", "length_followup"),
       method     = "glm",
-      workers    = 16
+      workers = min(c(16, detectCores() - 1))
     )
   }
-) |> set_names(names(ukb_prepped_data$tr_pim))
-
+) |> set_names(names(mgi_prepped_data$tr_pim))
 walk(
-  seq_along(ukb_phewas_res),
-  \(x) qsave(ukb_phewas_res[[x]], glue(
-    "results/ukb/{opt$ukb_version}/{opt$outcome}/ukb_",
-    "{opt$ukb_version}_phewas_{opt$outcome}_",
+  seq_along(mgi_train_phewas_res),
+  \(x) qsave(mgi_train_phewas_res[[x]], glue(
+    "results/mgi/{opt$mgi_version}/",
+    "{opt$outcome}/mgi_",
+    "{opt$mgi_version}_train_phewas_{opt$outcome}_",
     "t{time_thresholds[x]}_",
     "r{opt$matching_ratio}.qs"
   ))
 )
 
-ukb_phewas_plots <- map(
-  seq_along(ukb_phewas_res),
+mgi_train_phewas_plots <- map(
+  seq_along(mgi_train_phewas_res),
   \(x) {
     plot_phewasx(
-      ukb_phewas_res[[x]],
+      mgi_train_phewas_res[[x]],
       phe_var = "phecode",
-      title = stringr::str_wrap(glue("PheWAS for {ms::pheinfox[phecode == opt$outcome, description]} ",
-                   "[{opt$outcome}] at t = {time_thresholds[x]} in UKB"), width = 50)
+      title = stringr::str_wrap(glue(
+        "PheWAS for {ms::pheinfox[phecode == opt$outcome, description]} ",
+        "[{opt$outcome}] at t = {time_thresholds[x]} in MGI training"
+      ), width = 50)
     )
   }
 )
 
 walk(
-  seq_along(ukb_phewas_plots),
+  seq_along(mgi_train_phewas_plots),
   \(x) ggsave(
     filename = glue(
-      "results/ukb/{opt$ukb_version}/{opt$outcome}/ukb_",
-      "{opt$ukb_version}_phewas_plot_{opt$outcome}_",
+      "results/mgi/{opt$mgi_version}/{opt$outcome}/mgi_",
+      "{opt$mgi_version}_train_phewas_plot_{opt$outcome}_",
       "t{time_thresholds[x]}_",
       "r{opt$matching_ratio}.pdf"
     ),
-    plot = ukb_phewas_plots[[x]],
+    plot = mgi_phewas_plots[[x]],
     width = 8,
     height = 6,
     device = cairo_pdf
   )
 )
 
+## ukb
+if (also_ukb) {
+  ukb_phewas_res <- map(
+    seq_along(ukb_prepped_data$tr_pim),
+    \(x) {
+      cli_progress_step(paste0("running phewas for time threshold ", time_thresholds[x]))
+      ukb_data <- ukb_prepped_data$tr_pim[[x]]
+      ukb_phecodes <- names(ukb_data)[names(ukb_data) %in% ms::pheinfox[, phecode]]
+      ukb_phewas_res <- ms::map_phewas(
+        data       = ukb_data,
+        outcome    = "case",
+        exposures  = ukb_phecodes,
+        covariates = c("age", "length_followup"),
+        method     = "glm",
+        workers    = 16
+      )
+    }
+  ) |> set_names(names(ukb_prepped_data$tr_pim))
+
+  walk(
+    seq_along(ukb_phewas_res),
+    \(x) qsave(ukb_phewas_res[[x]], glue(
+      "results/ukb/{opt$ukb_version}/{opt$outcome}/ukb_",
+      "{opt$ukb_version}_phewas_{opt$outcome}_",
+      "t{time_thresholds[x]}_",
+      "r{opt$matching_ratio}.qs"
+    ))
+  )
+
+  ukb_phewas_plots <- map(
+    seq_along(ukb_phewas_res),
+    \(x) {
+      plot_phewasx(
+        ukb_phewas_res[[x]],
+        phe_var = "phecode",
+        title = stringr::str_wrap(glue("PheWAS for {ms::pheinfox[phecode == opt$outcome, description]} ",
+                    "[{opt$outcome}] at t = {time_thresholds[x]} in UKB"), width = 50)
+      )
+    }
+  )
+
+  walk(
+    seq_along(ukb_phewas_plots),
+    \(x) ggsave(
+      filename = glue(
+        "results/ukb/{opt$ukb_version}/{opt$outcome}/ukb_",
+        "{opt$ukb_version}_phewas_plot_{opt$outcome}_",
+        "t{time_thresholds[x]}_",
+        "r{opt$matching_ratio}.pdf"
+      ),
+      plot = ukb_phewas_plots[[x]],
+      width = 8,
+      height = 6,
+      device = cairo_pdf
+    )
+  )
+}
 #### correlation thresholding of top 50
 mgi_after_cor <- map(
   seq_along(time_thresholds),
@@ -381,13 +451,12 @@ mgi_after_cor <- map(
     )
   }
 ) |> set_names(glue("t{time_thresholds}"))
-
-ukb_after_cor <- map(
+mgi_train_after_cor <- map(
   seq_along(time_thresholds),
   \(i) {
     top_after_correlation <- remove_by_correlation(
-      cooccurrence_results = as.data.table(ukb_phewas_res[[i]]),
-      pim = ukb_prepped_data$tr_pim[[i]],
+      cooccurrence_results = as.data.table(mgi_train_phewas_res[[i]]),
+      pim = mgi_prepped_data$tr_pim[[i]][group == "train", ],
       exposure_var = "phecode",
       p_value_var = "p_value",
       top_n = 50,
@@ -396,6 +465,23 @@ ukb_after_cor <- map(
     )
   }
 ) |> set_names(glue("t{time_thresholds}"))
+
+if (also_ukb) {
+  ukb_after_cor <- map(
+    seq_along(time_thresholds),
+    \(i) {
+      top_after_correlation <- remove_by_correlation(
+        cooccurrence_results = as.data.table(ukb_phewas_res[[i]]),
+        pim = ukb_prepped_data$tr_pim[[i]],
+        exposure_var = "phecode",
+        p_value_var = "p_value",
+        top_n = 50,
+        corr_thresh = 0.5,
+        weights = NULL
+      )
+    }
+  ) |> set_names(glue("t{time_thresholds}"))
+}
 
 walk(
   seq_along(time_thresholds),
@@ -410,16 +496,28 @@ walk(
         "r{opt$matching_ratio}.qs"
       )
     )
-    qsave(
-      ukb_after_cor[[i]],
-      glue(
-        "results/ukb/{opt$ukb_version}/",
-        "{opt$outcome}/ukb_",
-        "{opt$ukb_version}_post_cor_phe_{opt$outcome}_",
-        "t{time_thresholds[i]}_",
-        "r{opt$matching_ratio}.qs"
+      qsave(
+        mgi_train_after_cor[[i]],
+        glue(
+          "results/mgi/{opt$mgi_version}/",
+          "{opt$outcome}/mgi_",
+          "{opt$mgi_version}_train_post_cor_phe_{opt$outcome}_",
+          "t{time_thresholds[i]}_",
+          "r{opt$matching_ratio}.qs"
+        )
       )
-    )
+      if (also_ukb) {
+        qsave(
+          ukb_after_cor[[i]],
+          glue(
+            "results/ukb/{opt$ukb_version}/",
+            "{opt$outcome}/ukb_",
+            "{opt$ukb_version}_post_cor_phe_{opt$outcome}_",
+            "t{time_thresholds[i]}_",
+            "r{opt$matching_ratio}.qs"
+          )
+        )
+      }
   }
 )
 ####
@@ -439,17 +537,18 @@ mgi_tr_merged <- map(
 ) |> set_names(glue("t{time_thresholds}"))
 
 # ukb
-ukb_tr_merged <- map(
-  seq_along(time_thresholds),
-  \(i) {
-    left_join(
-      ukb_prepped_data$tr_pim[[i]],
-      ukb_weights[, .(id = as.character(f.eid), weight = LassoWeight)],
-      by = "id"
-    )
-  }
-) |> set_names(glue("t{time_thresholds}"))
-
+if (also_ukb) {
+  ukb_tr_merged <- map(
+    seq_along(time_thresholds),
+    \(i) {
+      left_join(
+        ukb_prepped_data$tr_pim[[i]],
+        ukb_weights[, .(id = as.character(f.eid), weight = LassoWeight)],
+        by = "id"
+      )
+    }
+  ) |> set_names(glue("t{time_thresholds}"))
+}
 # IP
 ## mgi
 mgi_ip_phewas_res <- map(
@@ -549,79 +648,78 @@ walk(
   }
 )
 
-## ukb
-ukb_ip_phewas_res <- map(
-  seq_along(ukb_tr_merged),
+#### train
+mgi_train_ip_phewas_res <- map(
+  seq_along(mgi_tr_merged),
   \(x) {
     cli_progress_step(paste0("running phewas for time threshold ", time_thresholds[x]))
-    ukb_data <- ukb_tr_merged[[x]]
-    ukb_phecodes <- names(ukb_data)[names(ukb_data) %in% ms::pheinfox[, phecode]]
-    ukb_dsn <- survey::svydesign(
+    mgi_data <- mgi_tr_merged[[x]][group == "train", ]
+    mgi_phecodes <- names(mgi_data)[names(mgi_data) %in% ms::pheinfox[, phecode]]
+    mgi_dsn <- survey::svydesign(
       id      = ~1,
-      weights = ~weight,
-      data    = ukb_data[!is.na(weight), ]
+      weights = ~ip_selection,
+      data    = mgi_data[!is.na(ip_selection), ]
     )
-    ukb_phewas_res <- ms::map_phewas(
-      data        = ukb_data,
-      design      = ukb_dsn,
+    mgi_phewas_res <- ms::map_phewas(
+      data        = mgi_data,
+      design      = mgi_dsn,
       outcome     = "case",
-      exposures   = ukb_phecodes,
+      exposures   = mgi_phecodes,
       covariates  = c("age", "length_followup"),
       method      = "weighted",
-      .weight_var = "weight",
+      .weight_var = "ip_selection",
       workers     = 16
     )
   }
-) |> set_names(names(ukb_tr_merged))
+) |> set_names(names(mgi_tr_merged))
 
-### save
 walk(
-  seq_along(ukb_ip_phewas_res),
-  \(x) qsave(ukb_ip_phewas_res[[x]], glue(
-    "results/ukb/{opt$ukb_version}/",
-    "{opt$outcome}/ukb_",
-    "{opt$ukb_version}_ip_phewas_{opt$outcome}_",
+  seq_along(mgi_train_ip_phewas_res),
+  \(x) qsave(mgi_train_ip_phewas_res[[x]], glue(
+    "results/mgi/{opt$mgi_version}/",
+    "{opt$outcome}/mgi_",
+    "{opt$mgi_version}_train_ip_phewas_{opt$outcome}_",
     "t{time_thresholds[x]}_",
     "r{opt$matching_ratio}.qs"
   ))
 )
 
-ukb_ip_phewas_plots <- map(
-  seq_along(ukb_ip_phewas_res),
+mgi_train_ip_phewas_plots <- map(
+  seq_along(mgi_train_ip_phewas_res),
   \(x) {
     plot_phewasx(
-      ukb_ip_phewas_res[[x]],
+      mgi_train_ip_phewas_res[[x]],
       phe_var = "phecode",
       title = stringr::str_wrap(glue(
         "IP-weighted PheWAS for {ms::pheinfox[phecode == opt$outcome, description]} ",
-        "[{opt$outcome}] at t = {time_thresholds[x]} in ukb"
+        "[{opt$outcome}] at t = {time_thresholds[x]} in MGI"
       ), width = 50)
     )
   }
 )
 
 walk(
-  seq_along(ukb_ip_phewas_plots),
+  seq_along(mgi_train_ip_phewas_plots),
   \(x) ggsave(
     filename = glue(
-      "results/ukb/{opt$ukb_version}/{opt$outcome}/ukb_",
-      "{opt$ukb_version}_ip_phewas_plot_{opt$outcome}_",
+      "results/mgi/{opt$mgi_version}/{opt$outcome}/mgi_",
+      "{opt$mgi_version}_train_ip_phewas_plot_{opt$outcome}_",
       "t{time_thresholds[x]}_",
       "r{opt$matching_ratio}.pdf"
     ),
-    plot = ukb_ip_phewas_plots[[x]],
+    plot = mgi_train_ip_phewas_plots[[x]],
     width = 8,
     height = 6,
     device = cairo_pdf
   )
 )
 
-ukb_ip_after_cor <- map(
+mgi_train_ip_after_cor <- map(
   seq_along(time_thresholds),
   \(i) {
     top_after_correlation <- remove_by_correlation(
-      cooccurrence_results = as.data.table(ukb_ip_phewas_res[[i]]),
-      pim = ukb_tr_merged[[i]],
+      cooccurrence_results = as.data.table(mgi_ip_phewas_res[[i]]),
+      pim = mgi_tr_merged[[i]],
       exposure_var = "phecode",
       p_value_var = "p_value",
       top_n = 50,
@@ -635,11 +733,11 @@ walk(
   seq_along(time_thresholds),
   \(i) {
     qsave(
-      ukb_ip_after_cor[[i]],
+      mgi_train_ip_after_cor[[i]],
       glue(
-        "results/ukb/{opt$ukb_version}/",
-        "{opt$outcome}/ukb_",
-        "{opt$ukb_version}_ip_post_cor_phe_{opt$outcome}_",
+        "results/mgi/{opt$mgi_version}/",
+        "{opt$outcome}/mgi_",
+        "{opt$mgi_version}_train_ip_post_cor_phe_{opt$outcome}_",
         "t{time_thresholds[i]}_",
         "r{opt$matching_ratio}.qs"
       )
@@ -647,6 +745,105 @@ walk(
   }
 )
 
+## ukb
+if (also_ukb) {
+  ukb_ip_phewas_res <- map(
+    seq_along(ukb_tr_merged),
+    \(x) {
+      cli_progress_step(paste0("running phewas for time threshold ", time_thresholds[x]))
+      ukb_data <- ukb_tr_merged[[x]]
+      ukb_phecodes <- names(ukb_data)[names(ukb_data) %in% ms::pheinfox[, phecode]]
+      ukb_dsn <- survey::svydesign(
+        id      = ~1,
+        weights = ~weight,
+        data    = ukb_data[!is.na(weight), ]
+      )
+      ukb_phewas_res <- ms::map_phewas(
+        data        = ukb_data,
+        design      = ukb_dsn,
+        outcome     = "case",
+        exposures   = ukb_phecodes,
+        covariates  = c("age", "length_followup"),
+        method      = "weighted",
+        .weight_var = "weight",
+        workers     = 16
+      )
+    }
+  ) |> set_names(names(ukb_tr_merged))
+
+  ### save
+  walk(
+    seq_along(ukb_ip_phewas_res),
+    \(x) qsave(ukb_ip_phewas_res[[x]], glue(
+      "results/ukb/{opt$ukb_version}/",
+      "{opt$outcome}/ukb_",
+      "{opt$ukb_version}_ip_phewas_{opt$outcome}_",
+      "t{time_thresholds[x]}_",
+      "r{opt$matching_ratio}.qs"
+    ))
+  )
+
+  ukb_ip_phewas_plots <- map(
+    seq_along(ukb_ip_phewas_res),
+    \(x) {
+      plot_phewasx(
+        ukb_ip_phewas_res[[x]],
+        phe_var = "phecode",
+        title = stringr::str_wrap(glue(
+          "IP-weighted PheWAS for {ms::pheinfox[phecode == opt$outcome, description]} ",
+          "[{opt$outcome}] at t = {time_thresholds[x]} in ukb"
+        ), width = 50)
+      )
+    }
+  )
+
+  walk(
+    seq_along(ukb_ip_phewas_plots),
+    \(x) ggsave(
+      filename = glue(
+        "results/ukb/{opt$ukb_version}/{opt$outcome}/ukb_",
+        "{opt$ukb_version}_ip_phewas_plot_{opt$outcome}_",
+        "t{time_thresholds[x]}_",
+        "r{opt$matching_ratio}.pdf"
+      ),
+      plot = ukb_ip_phewas_plots[[x]],
+      width = 8,
+      height = 6,
+      device = cairo_pdf
+    )
+  )
+
+  ukb_ip_after_cor <- map(
+    seq_along(time_thresholds),
+    \(i) {
+      top_after_correlation <- remove_by_correlation(
+        cooccurrence_results = as.data.table(ukb_ip_phewas_res[[i]]),
+        pim = ukb_tr_merged[[i]],
+        exposure_var = "phecode",
+        p_value_var = "p_value",
+        top_n = 50,
+        corr_thresh = 0.5,
+        weights = NULL
+      )
+    }
+  ) |> set_names(glue("t{time_thresholds}"))
+
+  walk(
+    seq_along(time_thresholds),
+    \(i) {
+      qsave(
+        ukb_ip_after_cor[[i]],
+        glue(
+          "results/ukb/{opt$ukb_version}/",
+          "{opt$outcome}/ukb_",
+          "{opt$ukb_version}_ip_post_cor_phe_{opt$outcome}_",
+          "t{time_thresholds[i]}_",
+          "r{opt$matching_ratio}.qs"
+        )
+      )
+    }
+  )
+}
 # PS
 ## mgi
 mgi_ps_phewas_res <- map(
@@ -745,10 +942,5 @@ walk(
     )
   }
 )
-
-## ukb
-### NOT APPLICABLE
-
-####
 
 cli_alert_success("script done! 🙌")
