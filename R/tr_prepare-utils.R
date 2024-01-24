@@ -394,8 +394,16 @@ prepare_matched_phenomes <- function(
                         by = join_by(id)
                     )
             }
-        )
-        names(merged_tr) <- paste0("t", time_thresholds)
+        ) |>
+        map(
+            \(x) {
+                .partition_data(
+                    data      = x,
+                    prop      = c(0.5, 0.5),
+                    group_names = c("train", "test")
+                )
+            }
+        ) |> set_names(paste0("t", time_thresholds))
 
         out <- list(
             case_data  = case_data,
@@ -492,8 +500,16 @@ prepare_matched_phenomes <- function(
             mutate(
                 case = ifelse(id %in% case_data$case[, id], 1, 0)
             )
-        )
-        names(tr_pim) <- paste0("t", time_thresholds)
+        ) |>
+        map(
+            \(x) {
+                .partition_data(
+                    data      = x,
+                    prop      = c(0.5, 0.5),
+                    group_names = c("train", "test")
+                )
+            }
+        ) |> set_names(paste0("t", time_thresholds))
 
         out <- list(
             case_data  = case_data,
@@ -503,4 +519,42 @@ prepare_matched_phenomes <- function(
 
     return(out)
 
+}
+
+### PARTITION DATA
+.partition_data <- function(data, prop, group_names = NULL) {
+    # Check if proportions sum up to 1
+    if (sum(prop) != 1) {
+        stop("Error: Proportions do not sum up to 1!")
+    }
+
+    # If group names are not provided, create default group names
+    if (is.null(group_names)) {
+        group_names <- paste0("Group ", 1:length(prop))
+    } else if (length(group_names) != length(prop)) {
+        stop("Error: Not enough group names for the proportions!")
+    }
+
+    # Calculate sizes of each group
+    group_sizes <- round(nrow(data) * prop)
+
+    # Adjust for rounding error
+    if (sum(group_sizes) != nrow(data)) {
+        group_sizes[1] <- group_sizes[1] + nrow(data) - sum(group_sizes)
+    }
+
+    # Create a vector to store group assignments
+    group_assignments <- rep(NA, nrow(data))
+
+    start_index <- 1
+    for (i in 1:length(group_sizes)) {
+        end_index <- start_index + group_sizes[i] - 1
+        group_assignments[start_index:end_index] <- group_names[i]
+        start_index <- end_index + 1
+    }
+
+    # Add group assignments to data
+    data$group <- factor(group_assignments)
+
+    return(data)
 }

@@ -11,6 +11,7 @@ ms::libri(data.table, qs, MatchIt, optparse, glue, cli, ms, tidyverse)
 
 # load functions
 walk(list.files("fn/", full.names = TRUE), source)
+source("R/match-utils.R")
 
 # optparse list ----------------------------------------------------------------
 option_list <- list(
@@ -27,7 +28,7 @@ option_list <- list(
     help = "Version of UKB data [default = %default]"
   ),
   make_option("--time_thresholds",
-    type = "character", default = "0,0.5,1,2,3,5",
+    type = "character", default = "0,1,2,5",
     help = glue(
       "Time thresholds for the phenome data ",
       "[default = %default]"
@@ -88,6 +89,8 @@ common_codes <- common_codes_tab[aou >= 20 & mgi >= 20, phecode]
 also_ukb <- opt$outcome %in% common_codes_tab[ukb >= 20, phecode]
 if (!also_ukb) {
   cli_alert("outcome is not defined in UKB. skipping UKB analyses...")
+} else {
+  common_codes_ukb <- common_codes_tab[ukb >= 20, phecode]
 }
 if (!opt$outcome %in% common_codes) stop("outcome is not defined in MGI and AOU. stopping.")
 
@@ -141,17 +144,18 @@ if (also_ukb) {
   if (outcome_sex != "Both") {
     ukb_demo <- ukb_demo[sex %in% c(outcome_sex, substr(outcome_sex, 1, 1)), ]
   }
-  ukb_demo <- ukb_demo[, .(id, age = age_at_consent, ethn = race_eth, sex)]
+  ukb_demo <- ukb_demo[, .(id, age_at_first_diagnosis = age_at_first_diagnosisx, age_at_last_diagnosisx, ethn = race_eth, sex)]
   ukb_demo <- ukb_demo[complete.cases(ukb_demo), ]
 
   ### pim
+  ukb_pim_vars <- c("id", common_codes_ukb)
   ukb_pim0 <- qread(glue("data/private/ukb/{opt$ukb_version}/UKB_PIM0X_{opt$ukb_version}.qs"))[id %in% ukb_demo[, id], ]
-  ukb_pim0 <- ukb_pim0[, ..pim_vars]
+  ukb_pim0 <- ukb_pim0[, ..ukb_pim_vars]
   setnames(ukb_pim0, old = opt$outcome, new = "outcome")
 
   ### phecode-dsb data
   ukb_full_phe  <- qread(glue("data/private/ukb/{opt$ukb_version}/UKB_FULL_PHECODEX_DSB_{opt$ukb_version}.qs")) |>
-    dplyr::filter(id %in% ukb_demo[, id] & phecode %in% common_codes)
+    dplyr::filter(id %in% ukb_demo[, id] & phecode %in% common_codes_ukb)
   ukb_first_phe <- ukb_full_phe[ ukb_full_phe[, .I[which.min(dsb)], by = c("id", "phecode")]$V1 ]
 }
 
@@ -161,19 +165,23 @@ if (also_ukb) {
 
 # 5. identify cases ------------------------------------------------------------
 ## mgi
-cancer_phecodesx <- fread("https://raw.githubusercontent.com/maxsal/public_data/main/phewas/cancer_phecodesx.csv")[keep == 1, phecode]
+cancer_phecodesx <- fread("https://raw.githubusercontent.com/maxsal/public_data/main/phewas/cancer_phecodesx.csv")
 
 mgi_case_data <- prepare_case_data(
   phe_dsb_data = mgi_full_phe,
   demo_data    = mgi_demo,
-  outcome      = opt$outcome
+  outcome      = opt$outcome,
+  malignant_phecodes    = cancer_phecodesx[keep == 1, phecode],
+  specific_phecodes     = cancer_phecodesx[specific == 1, phecode]
 )
 
 if (also_ukb) {
   ukb_case_data <- prepare_case_data(
     phe_dsb_data = ukb_full_phe,
     demo_data    = ukb_demo,
-    outcome      = opt$outcome
+    outcome      = opt$outcome,
+  malignant_phecodes    = cancer_phecodesx[keep == 1, phecode],
+  specific_phecodes     = cancer_phecodesx[specific == 1, phecode]
   )
 }
 
@@ -184,8 +192,12 @@ if (also_ukb) {
 # 6. calculate diagnostic metrics ----------------------------------------------
 ## mgi
 mgi_demo <- mgi_demo[!(id %in% mgi_case_data$exclude_ids), ][, `:=`(
-  female = as.numeric(sex == "F"),
-  case = fifelse(id %in% mgi_case_data$case[, id], 1, 0)
+  female = fcase(sex == "Female", 1, sex == "Male", 0),
+  case = fifelse(id %in% mgi_case_data$case[, id], 1, 0),
+  length_followup = round((last_dsbx - first_dsbx) / 365.25, 1)
+)][, .(
+  id, female, case, length_followup, age_at_first_diagnosis = age_at_first_diagnosisx,
+  first_dsb = first_dsbx
 )]
 
 ## ukb
@@ -194,7 +206,7 @@ if (also_ukb) {
     full_phe_data = ukb_first_phe
   )[, id := as.character(id)]
   ukb_matching_cov <- merge.data.table(
-    ukb_demo[!(id %in% ukb_case_data$exclude_ids), .(id, age, female = as.numeric(sex == "Female"))],
+    ukb_demo[!(id %in% ukb_case_data$exclude_ids), .(id, female = fcase(sex == "Female", 1, sex == "Male", 0))],
     ukb_diag_metrics,
     by = "id"
   )[, case := fifelse(id %in% ukb_case_data$case[, id], 1, 0)]
@@ -303,9 +315,20 @@ mgi_pims <- map(
     threshold   = i,
     cases       = mgi_case_data$case[, id],
     outcome_phe = opt$outcome
-  )
-)
-names(mgi_pims) <- glue("t{time_thresholds}")
+  ),
+  .progress = TRUE
+) |> set_names(glue("t{time_thresholds}"))
+
+mgi_pims <- map(
+  seq_along(time_thresholds),
+  \(i) {
+    partition_data(
+      data = mgi_pims[[i]],
+      prop = c(0.5, 0.5),
+      group_names = c("train", "test")
+    )
+  }
+) |> set_names(glue("t{time_thresholds}"))
 
 walk(
   seq_along(mgi_pims),
@@ -339,8 +362,18 @@ if (also_ukb) {
       cases       = ukb_case_data$case[, id],
       outcome_phe = opt$outcome
     )
-  )
-  names(ukb_pims) <- glue("t{time_thresholds}")
+  ) |> set_names(glue("t{time_thresholds}"))
+
+  ukb_pims <- map(
+    seq_along(time_thresholds),
+    \(i) {
+      partition_data(
+        data = ukb_pims[[i]],
+        prop = c(0.5, 0.5),
+        group_names = c("train", "test")
+      )
+    }
+  ) |> set_names(glue("t{time_thresholds}"))
 
   walk(
     seq_along(ukb_pims),

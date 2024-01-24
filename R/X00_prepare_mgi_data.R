@@ -43,6 +43,13 @@ MGIcohort <- merge.data.table(
   by = "DeID_PatientID"
 )[StudyName != "AOS", ]
 
+MGIcohort[, `:=` (
+  Sex = fcase(
+    Sex == "M", "Male",
+    Sex == "F", "Female"
+  )
+)]
+
 ### MAP ICD9/ICD10 codes
 mgi_icd9  <- get(load(file_paths[["mgi"]][["icd9_file"]]))
 mgi_icd10 <- get(load(file_paths[["mgi"]][["icd10_file"]]))
@@ -84,8 +91,8 @@ restrictPhecodesBySex_mod <- function(phenotypes, id.sex, by_var = "person_id", 
   male_only <- current_sex_restriction[current_sex_restriction$male_only, phecode]
   female_only <- current_sex_restriction[current_sex_restriction$female_only, phecode]
   # Set row column matches to NA where inds of a sex meet restricted phenotypes
-  data[phecode %in% male_only & sex == "F", phecode := NA]
-  data[phecode %in% female_only & sex == "M", phecode := NA]
+  data[phecode %in% male_only & sex == "Female", phecode := NA]
+  data[phecode %in% female_only & sex == "Male", phecode := NA]
 
   na.omit(data)[, (sex_var) := NULL][]
 }
@@ -204,7 +211,10 @@ MGIcohort[
   smoking_former  = as.numeric(SmokingStatus == "Past")
 )]
 
-MGIcohort[, female := as.numeric(Sex == "F")]
+MGIcohort[, female := fcase(
+  Sex == "Female", 1,
+  Sex == "Male", 0
+)]
 
 # saving files -----------------------------------------------------------------
 cli_alert("saving processed files...")

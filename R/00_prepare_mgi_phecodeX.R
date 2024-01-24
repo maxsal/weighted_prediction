@@ -54,8 +54,8 @@ restrictPhecodesBySex_mod <- function(phenotypes, id.sex, by_var = "person_id", 
     male_only <- current_sex_restriction[current_sex_restriction$male_only, phecode]
     female_only <- current_sex_restriction[current_sex_restriction$female_only, phecode]
     # Set row column matches to NA where inds of a sex meet restricted phenotypes
-    data[phecode %in% male_only & sex == "F", phecode := NA]
-    data[phecode %in% female_only & sex == "M", phecode := NA]
+    data[phecode %in% male_only & sex == "Female", phecode := NA]
+    data[phecode %in% female_only & sex == "Male", phecode := NA]
 
     na.omit(data)[, (sex_var) := NULL][]
 }
@@ -316,7 +316,7 @@ mgi_demo[, `:=` (
 )]
 mgi_demo[, `:=` (
     nhw = as.numeric(race_eth == "NHW"),
-    female = as.numeric(sex == "F")
+    female = as.numeric(sex == "Female")
 )]
 ###
 

@@ -61,8 +61,8 @@ cli_alert("loading data...")
 # MGI
 mgi <- read_qs(glue("{data_path}datax_{opt$cohort_version}_{opt$mgi_cohort}.qs")) |>
   mutate(
-    smoking_current = as.numeric(SmokingStatus == "Current"),
-    smoking_former  = as.numeric(SmokingStatus == "Former"),
+    # smoking_current = as.numeric(SmokingStatus == "Current"),
+    # smoking_former  = as.numeric(SmokingStatus == "Former"),
 
     bmi_cat = relevel(factor(case_when(
       bmi_cat == 1 ~ "Underweight",
@@ -75,21 +75,23 @@ mgi <- read_qs(glue("{data_path}datax_{opt$cohort_version}_{opt$mgi_cohort}.qs")
     bmi_underweight = as.numeric(bmi_cat == "Underweight"),
     bmi_unknown     = as.numeric(bmi_cat == "Unknown"),
 
-    race_eth = case_when(
-      RaceEthnicity == "Caucasian / Non-Hispanic" ~ "NH White",
-      RaceEthnicity == "African American / Non-Hispanic" ~ "NH Black",
-      RaceEthnicity %in% c(
-        "Asian / Hispanic", "Caucasian / Hispanic", "Native American / Hispanic", "African American / Hispanic"
-      ) ~ "Hispanic",
-      RaceEthnicity == "Asian / Non-Hispanic" ~ "NH Asian",
-      .default = "Other/Unknown"
-    ),
+    # race_eth = case_when(
+    #   RaceEthnicity == "Caucasian / Non-Hispanic" ~ "NH White",
+    #   RaceEthnicity == "African American / Non-Hispanic" ~ "NH Black",
+    #   RaceEthnicity %in% c(
+    #     "Asian / Hispanic", "Caucasian / Hispanic", "Native American / Hispanic", "African American / Hispanic"
+    #   ) ~ "Hispanic",
+    #   RaceEthnicity == "Asian / Non-Hispanic" ~ "NH Asian",
+    #   .default = "Other/Unknown"
+    # ),
 
     dataset = "MGI"
   ) |>
-  select(-c(cancer, diabetes, cad)) |>
+  select(-c(cancer, diabetes, cad, hypertension, anxiety, depression)) |>
   rename(
-    "cancer" = "cancerx", "cad" = "cadx", "diabetes" = "diabetesx"
+    "cancer" = "cancerx", "cad" = "cadx", "diabetes" = "diabetesx",
+    "hypertension" = "hypertensionx", "anxiety" = "anxietyx",
+    "depression" = "depressionx"
   ) |>
   mutate(
     age_50 = as.numeric(age >= 50),
@@ -124,10 +126,8 @@ stacked <- rbindlist(list(
 cli_alert("estimating ipw weights...")
 
 ip_weights_list <- list(
-  "selection" = c("age_50",
-                  "cad", "diabetes", "smoker",
-                  "bmi_cat", "nhw",
-                  "female", "cancer")
+  "selection" = c("as.numeric(age >= 50)", "female", "nhw", "hypertension",
+                  "diabetes", "cancer", "anxiety", "depression", "bmi_cat")
 )
 
 ip_weights <- list()
@@ -170,7 +170,7 @@ setnames(mgi_crossfit, old = "ip_weight", new = "ip_crossfit", skip_absent = TRU
 
 cli_alert("estimating poststratification weights...")
 post_weights_list <- list(
-  "selection" = c("smoker", "cad", "diabetes", "cancer", "nhw", "female", "bmi_cat")
+  "selection" = c("female", "nhw", "hypertension", "diabetes", "cancer", "anxiety", "depression", "bmi_cat")
 )
 
 post_weights <- list()
@@ -179,6 +179,7 @@ for (i in seq_along(names(post_weights_list))) {
   tmp_weights <- psw(
     int_data       = mgi,
     ext_data       = prepped_nhis,
+    age_var = "age_at_last_diagnosisx",
     psu_var        = "PPSU",
     strata_var     = "PSTRAT",
     weight_var     = "WTFA_A",
@@ -230,14 +231,6 @@ extract_estimates <- function(
   est     <- summary(mod)$coef[exposure, 1:2]
   beta_lo <- est[[1]] - qnorm(0.975) * est[[2]]
   beta_hi <- est[[1]] + qnorm(0.975) * est[[2]]
-  rare <- ifelse(sum(mod$data[[outcome]], na.rm = TRUE) /
-    length(na.omit(mod$data[[outcome]])) >= 0.15, FALSE, TRUE)
-  evals <- suppressMessages(evalues.OR(
-    est  = exp(est[[1]]),
-    lo   = exp(beta_lo),
-    hi   = exp(beta_hi),
-    rare = rare
-  ))
   data.table(
     outcome  = outcome,
     exposure = exposure,
@@ -247,10 +240,7 @@ extract_estimates <- function(
     beta_hi  = beta_hi,
     or       = exp(est[[1]]),
     or_lo    = exp(beta_lo),
-    or_hi    = exp(beta_hi),
-    eval     = evals[2, 1],
-    eval_lo  = evals[2, 2],
-    eval_hi  = evals[2, 3]
+    or_hi    = exp(beta_hi)
   )
 }
 
@@ -288,38 +278,38 @@ save_qs(
   file = glue("{data_path}weightsx_{opt$cohort_version}_{opt$mgi_cohort}.qs")
 )
 
-scat_plot <- weights |>
-  ggplot(aes(x = ip_selection, y = ps_selection)) +
-  geom_point(size = 1, alpha = 0.5) +
-  labs(title = str_wrap("MGI weight scatterplot with marginal distibution", width = 50), x = "IP weight", y = "PS weight") +
-  theme_ms()
+# scat_plot <- weights |>
+#   ggplot(aes(x = ip_selection, y = ps_selection)) +
+#   geom_point(size = 1, alpha = 0.5) +
+#   labs(title = str_wrap("MGI weight scatterplot with marginal distibution", width = 50), x = "IP weight", y = "PS weight") +
+#   theme_ms()
 
-marg_plot <- ggMarginal(scat_plot, type = "violin", margins = "both")
+# marg_plot <- ggMarginal(scat_plot, type = "violin", margins = "both")
 
-ggsave(
-  plot     = marg_plot,
-  filename = glue("results/mgi/{opt$cohort_version}/mgi_weights_dist.png"),
-  width    = 8,
-  height   = 8,
-  units    = "in",
-  dpi      = 300
-)
+# ggsave(
+#   plot     = marg_plot,
+#   filename = glue("results/mgi/{opt$cohort_version}/mgi_weights_dist.png"),
+#   width    = 8,
+#   height   = 8,
+#   units    = "in",
+#   dpi      = 300
+# )
 
-mgi_weight_violin_plot <- weights[, .(`IP weight` = ip_selection, `IP crossfit` = ip_crossfit, `PS weight` = ps_selection)] |>
-  melt() |>
-  ggplot(aes(x = variable, y = value, fill = variable)) +
-  geom_violin(draw_quantiles = c(0.25, 0.5, 0.75)) +
-  labs(x = "Weight type", y = "Weight value", title = "MGI weight distribution") +
-  scale_fill_ms() +
-  theme_ms() +
-  theme(
-    legend.position = "none"
-  )
+# mgi_weight_violin_plot <- weights[, .(`IP weight` = ip_selection, `IP crossfit` = ip_crossfit, `PS weight` = ps_selection)] |>
+#   melt() |>
+#   ggplot(aes(x = variable, y = value, fill = variable)) +
+#   geom_violin(draw_quantiles = c(0.25, 0.5, 0.75)) +
+#   labs(x = "Weight type", y = "Weight value", title = "MGI weight distribution") +
+#   scale_fill_ms() +
+#   theme_ms() +
+#   theme(
+#     legend.position = "none"
+#   )
 
-ggsave(
-  plot = mgi_weight_violin_plot,
-  filename = glue("results/mgi/{opt$cohort_version}/mgi_weights_violin.pdf"),
-  width = 6, height = 6, device = cairo_pdf
-)
+# ggsave(
+#   plot = mgi_weight_violin_plot,
+#   filename = glue("results/mgi/{opt$cohort_version}/mgi_weights_violin.pdf"),
+#   width = 6, height = 6, device = cairo_pdf
+# )
 
 cli_alert_success("script success! see {.path {data_path}} and suffix {opt$mgi_cohort} 🥳")

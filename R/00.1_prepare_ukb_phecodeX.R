@@ -47,8 +47,8 @@ restrictPhecodesBySex_mod <- function(phenotypes, id.sex, by_var = "person_id", 
     male_only <- current_sex_restriction[current_sex_restriction$male_only, phecode]
     female_only <- current_sex_restriction[current_sex_restriction$female_only, phecode]
     # Set row column matches to NA where inds of a sex meet restricted phenotypes
-    data[phecode %in% male_only & sex == "F", phecode := NA]
-    data[phecode %in% female_only & sex == "M", phecode := NA]
+    data[phecode %in% male_only & sex == "Female", phecode := NA]
+    data[phecode %in% female_only & sex == "Male", phecode := NA]
 
     na.omit(data)[, (sex_var) := NULL][]
 }
@@ -59,6 +59,7 @@ restricted <- restrictPhecodesBySex_mod(mapped, id.sex = id_sex, by_var = "id")
 in_demo_and_phenome <- intersect(unique(ukb_demo[, id]), unique(restricted[, id]))
 
 restricted <- restricted[id %in% in_demo_and_phenome, ]
+restricted <- unique(restricted[, .(id, phecode, dsb)])
 
 ## save
 qsave(

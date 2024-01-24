@@ -217,3 +217,40 @@ prepare_case_data <- function(
         unmatched_demo = unmatched_demo
     ))
 }
+
+partition_data <- function(data, prop, group_names = NULL) {
+    # Check if proportions sum up to 1
+    if (sum(prop) != 1) {
+        stop("Error: Proportions do not sum up to 1!")
+    }
+
+    # If group names are not provided, create default group names
+    if (is.null(group_names)) {
+        group_names <- paste0("Group ", 1:length(prop))
+    } else if (length(group_names) != length(prop)) {
+        stop("Error: Not enough group names for the proportions!")
+    }
+
+    # Calculate sizes of each group
+    group_sizes <- round(nrow(data) * prop)
+
+    # Adjust for rounding error
+    if (sum(group_sizes) != nrow(data)) {
+        group_sizes[1] <- group_sizes[1] + nrow(data) - sum(group_sizes)
+    }
+
+    # Create a vector to store group assignments
+    group_assignments <- rep(NA, nrow(data))
+
+    start_index <- 1
+    for (i in 1:length(group_sizes)) {
+        end_index <- start_index + group_sizes[i] - 1
+        group_assignments[start_index:end_index] <- group_names[i]
+        start_index <- end_index + 1
+    }
+
+    # Add group assignments to data
+    data$group <- factor(group_assignments)
+
+    return(data)
+}

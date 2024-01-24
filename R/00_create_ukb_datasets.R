@@ -61,7 +61,7 @@ setnames(icd10, old = c("f.41270", "f.41280"), new = c("diagnosis_code", "date")
 icd10[, date := as.Date(date)]
 icd10 <- icd10[, .(id = as.character(f.eid), diagnosis_code, date)]
 
-# pull UKB covariate data by field
+# # pull UKB covariate data by field
 # dob <- reformat_ukb(
 #   fields = c(31, 34, 52, 22001, 21000, 20116, 20117, 21001, 200, 6142, 680, 728, 709, 2178, 6138),
 #   data_coding    = TRUE,
@@ -70,7 +70,7 @@ icd10 <- icd10[, .(id = as.character(f.eid), diagnosis_code, date)]
 #   recode         = TRUE
 # )
 
-# ### save raw pull
+# # ### save raw pull
 # save_qs(
 #   dob,
 #   paste0("/net/junglebook/home/mmsalva/projects/dissertation/aim_two/data/private/ukb/", opt$ukb_version, "/dob_raw.qs")
@@ -319,7 +319,8 @@ dob$data <- c(
 )
 
 # combine pulled data ----------------------------------------------------------
-dob <- Reduce(\(x, y) merge.data.table(x, y, by = "f.eid", all = TRUE), dob$data)
+dob <- dob$data |>
+  purrr::reduce(dplyr::full_join, by = "f.eid")
 setnames(dob, c("f.eid", "date_of_consenting_to_join_uk_biobank"), c("id", "consent_date"))
 dob[, consent_date := as.Date(consent_date)]
 
@@ -642,6 +643,19 @@ comorbids <- c(names(comorbid), "triglycerides")
 for (i in comorbids) {
   dob[in_phenome == 0, (i) := NA_real_]
 }
+
+dob[, `:=` (
+  smoker = fcase(
+    smk_ev == "Ever", 1,
+    smk_ev == "Never", 0,
+    default = NA
+  ),
+  drinker = fcase(
+    alc_ev == "Ever", 1,
+    alc_ev == "Never", 0,
+    default = NA
+  )
+)]
 
 ## save
 fwrite(
