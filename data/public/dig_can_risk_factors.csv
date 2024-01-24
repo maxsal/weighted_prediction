@@ -1,0 +1,24 @@
+﻿outcome,outcome_phecode,risk_factor,risk_factor_variable,source_1,source_2,source_3,source_4
+Colorectal cancer,CA_101.41,Alcohol,alcohol_ever,10.3390/cancers13092025,10.1038/s41575-019-0189-8,27766137,
+Esophageal cancer,CA_101.1,Alcohol,alcohol_ever,10.3748/wjg.v21.i26.7933,10.1007/s12328-020-01237-x,,
+Pancreatic cancer,CA_101.8,Alcohol,alcohol_ever,10.14740/wjon1166,10.1093/ije/dyu240,10.1038/s41575-021-00457-x,
+Liver cancer,CA_101.6,Alcohol,alcohol_ever,10.1007/s10552-019-01237-4,10.3889/oamjms.2015.111,10.3748/wjg.14.4300,
+Liver cancer,CA_101.6,Chronic liver (cirrhosis),GI_542,10.1007/s10552-019-01237-4,10.3889/oamjms.2015.111,10.3748/wjg.14.4300,
+Colorectal cancer,CA_101.41,Diabetes,EM_202,10.3390/cancers13092025,10.1038/sj.bjc.6605721,10.1001/jamanetworkopen.2023.43333,
+Pancreatic cancer,CA_101.8,Diabetes,EM_202,10.14740/wjon1166,10.1093/ije/dyu240,10.1038/s41575-021-00457-x,10.1038/bjc.2013.689
+Esophageal cancer,CA_101.1,Diabetes,EM_202,10.1155/2022/8129771,10.1097/MD.0000000000007944,10.1038/sj.bjc.6604908,
+Liver cancer,CA_101.6,Diabetes,EM_202,10.1007/s10552-019-01237-4,10.3889/oamjms.2015.111,10.3748/wjg.14.4300,
+Pancreatic cancer,CA_101.8,Helicobacter Pylori,ID_008,10.14740/wjon1166,10.1093/ije/dyu240,,10.1038/bjc.2013.689
+Pancreatic cancer,CA_101.8,Hepatitis (B),ID_054,,10.1093/ije/dyu240,,10.1038/bjc.2013.689
+Liver cancer,CA_101.6,Hepatitis (B/C),ID_054,10.1007/s10552-019-01237-4,10.3889/oamjms.2015.111,10.3748/wjg.14.4300,
+Colorectal cancer,CA_101.41,IBD,GI_522.1,10.3390/cancers13092025,10.1038/s41575-019-0189-8,27766137,
+Liver cancer,CA_101.6,NASH,GI_542.7,10.1007/s10552-019-01237-4,,10.3748/wjg.14.4300,
+Esophageal cancer,CA_101.1,Obesity,EM_236.1,10.3748/wjg.v21.i26.7933,10.1007/s12328-020-01237-x,,
+Pancreatic cancer,CA_101.8,Obesity,EM_236.1,10.14740/wjon1166,10.1093/ije/dyu240,10.1038/s41575-021-00457-x,
+Liver cancer,CA_101.6,Obesity,EM_236.1,10.1007/s10552-019-01237-4,10.3889/oamjms.2015.111,10.3748/wjg.14.4300,
+Colorectal cancer,CA_101.41,Overweight/obesity,EM_236.1,10.3390/cancers13092025,10.1038/s41575-019-0189-8,27766137,
+Pancreatic cancer,CA_101.8,Pancreatitis,GI_554.1,10.14740/wjon1166,10.1093/ije/dyu240,10.1038/s41575-021-00457-x,10.1038/bjc.2013.689
+Colorectal cancer,CA_101.41,Smoking,smoke_ever,10.3390/cancers13092025,10.1038/s41575-019-0189-8,27766137,
+Esophageal cancer,CA_101.1,Smoking,smoke_ever,10.3748/wjg.v21.i26.7933,10.1007/s12328-020-01237-x,,
+Pancreatic cancer,CA_101.8,Smoking,smoke_ever,10.14740/wjon1166,10.1093/ije/dyu240,10.1038/s41575-021-00457-x,10.1038/bjc.2013.689
+Liver cancer,CA_101.6,Smoking,smoke_ever,10.1038/s41416-018-0007-z,10.1093/ije/29.2.232,,

@@ -1,0 +1,35 @@
+﻿outcome,outcome_phecode,symptom_description,symptom_phecode,phecode_description,source_1
+Liver cancer,CA_101.6,Discomfort in the upper abdomen on the right side,GI_527,Abdominal pain,https://www.cdc.gov/cancer/liver/index.htm
+Liver cancer,CA_101.6,A swollen abdomen,GI_556.3,"Abdominal or pelvic swelling, mass, or lump",https://www.cdc.gov/cancer/liver/index.htm
+Liver cancer,CA_101.6,A hard lump on the right side just below the rib cage,GI_556.3,"Abdominal or pelvic swelling, mass, or lump",https://www.cdc.gov/cancer/liver/index.htm
+Liver cancer,CA_101.6,Pain in right shoulder blade or back,MS_713.31,Pain in shoulder,https://www.cdc.gov/cancer/liver/index.htm
+Liver cancer,CA_101.6,Pain in right shoulder blade or back,MS_718,Back pain,https://www.cdc.gov/cancer/liver/index.htm
+Liver cancer,CA_101.6,Jaudince,SS_814,Jaundice,https://www.cdc.gov/cancer/liver/index.htm
+Liver cancer,CA_101.6,Unusual tiredness,SS_807,Fatigue,https://www.cdc.gov/cancer/liver/index.htm
+Liver cancer,CA_101.6,Nausea and vomiting,GI_528.2,Nausea and vomiting,https://www.cdc.gov/cancer/liver/index.htm
+Liver cancer,CA_101.6,Weight loss for no known reason,EM_230.21,Abnormal weight loss,https://www.cdc.gov/cancer/liver/index.htm
+Liver cancer,CA_101.6,Loss of appetite,,,https://www.cdc.gov/cancer/liver/index.htm
+Colorectal cancer,CA_101.41,A change in bowel habits,,,https://www.cdc.gov/cancer/colorectal/basic_info/symptoms.htm
+Colorectal cancer,CA_101.41,Blood in or on your stool (bowel movement),GI_557.2,Blood in stool,https://www.cdc.gov/cancer/colorectal/basic_info/symptoms.htm
+Colorectal cancer,CA_101.41,"Diarrhea, constipation, or feeling that the bowel does not empty all the way",GI_529.5,Constipation,https://www.cdc.gov/cancer/colorectal/basic_info/symptoms.htm
+Colorectal cancer,CA_101.41,"Diarrhea, constipation, or feeling that the bowel does not empty all the way",,,https://www.cdc.gov/cancer/colorectal/basic_info/symptoms.htm
+Colorectal cancer,CA_101.41,"Abdominal pain, aches, or cramps that don't go away",GI_527,Abdominal pain,https://www.cdc.gov/cancer/colorectal/basic_info/symptoms.htm
+Colorectal cancer,CA_101.41,Weight loss and you don't know why,EM_230.21,Abnormal weight loss,https://www.cdc.gov/cancer/colorectal/basic_info/symptoms.htm
+Esophageal cancer,CA_101.1,Trouble swallowing,GI_512,Aphagia and dysphagia,https://www.cancer.org/cancer/types/esophagus-cancer/detection-diagnosis-staging/signs-and-symptoms.html
+Esophageal cancer,CA_101.1,Chest pain,SS_800,Chest pain,https://www.cancer.org/cancer/types/esophagus-cancer/detection-diagnosis-staging/signs-and-symptoms.html
+Esophageal cancer,CA_101.1,Weight loss,EM_230.21,Abnormal weight loss,https://www.cancer.org/cancer/types/esophagus-cancer/detection-diagnosis-staging/signs-and-symptoms.html
+Esophageal cancer,CA_101.1,Hoarseness,,,https://www.cancer.org/cancer/types/esophagus-cancer/detection-diagnosis-staging/signs-and-symptoms.html
+Esophageal cancer,CA_101.1,Chronic cough,RE_499.12,Chronic cough*,https://www.cancer.org/cancer/types/esophagus-cancer/detection-diagnosis-staging/signs-and-symptoms.html
+Esophageal cancer,CA_101.1,Vomiting,GI_528.2,Vomiting,https://www.cancer.org/cancer/types/esophagus-cancer/detection-diagnosis-staging/signs-and-symptoms.html
+Esophageal cancer,CA_101.1,Bone pain,,,https://www.cancer.org/cancer/types/esophagus-cancer/detection-diagnosis-staging/signs-and-symptoms.html
+Esophageal cancer,CA_101.1,Bleeding into the esophagus,,,https://www.cancer.org/cancer/types/esophagus-cancer/detection-diagnosis-staging/signs-and-symptoms.html
+Pancreatic cancer,CA_101.8,Jaundice,SS_814,Jaundice,https://www.cancer.org/cancer/types/pancreatic-cancer/detection-diagnosis-staging/signs-and-symptoms.html
+Pancreatic cancer,CA_101.8,Belly or back pain,MS_718,Back pain,https://www.cancer.org/cancer/types/pancreatic-cancer/detection-diagnosis-staging/signs-and-symptoms.html
+Pancreatic cancer,CA_101.8,Belly or back pain,GI_527,Abdominal pain,https://www.cancer.org/cancer/types/pancreatic-cancer/detection-diagnosis-staging/signs-and-symptoms.html
+Pancreatic cancer,CA_101.8,Weight loss and poor appetite,EM_230.21,Abnormal weight loss,https://www.cancer.org/cancer/types/pancreatic-cancer/detection-diagnosis-staging/signs-and-symptoms.html
+Pancreatic cancer,CA_101.8,Nausea and vomiting,GI_528.2,Nausea and vomiting,https://www.cancer.org/cancer/types/pancreatic-cancer/detection-diagnosis-staging/signs-and-symptoms.html
+Pancreatic cancer,CA_101.8,Gallbladder or liver enlargement,GI_546.3,Hepatomegaly,https://www.cancer.org/cancer/types/pancreatic-cancer/detection-diagnosis-staging/signs-and-symptoms.html
+Pancreatic cancer,CA_101.8,Gallbladder or liver enlargement,GI_550.2,Cholecystitis,https://www.cancer.org/cancer/types/pancreatic-cancer/detection-diagnosis-staging/signs-and-symptoms.html
+Pancreatic cancer,CA_101.8,Blood clots (DVT or PE),CV_440.11,Deep vein thrombosis [DVT],https://www.cancer.org/cancer/types/pancreatic-cancer/detection-diagnosis-staging/signs-and-symptoms.html
+Pancreatic cancer,CA_101.8,Blood clots (DVT or PE),CV_440.3,Pulmonary embolism,https://www.cancer.org/cancer/types/pancreatic-cancer/detection-diagnosis-staging/signs-and-symptoms.html
+Pancreatic cancer,CA_101.8,Diabetes,EM_202,Diabetes mellitus,https://www.cancer.org/cancer/types/pancreatic-cancer/detection-diagnosis-staging/signs-and-symptoms.html

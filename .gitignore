@@ -1,0 +1,16 @@
+.Rproj.user
+.Rhistory
+.RData
+.Ruserdata
+data/private/
+data/private/*
+results/
+results/*
+bin/
+bin/*
+logs/
+logs/*
+plots/
+plots/*
+docs/
+docs/*
