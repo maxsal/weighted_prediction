@@ -100,6 +100,7 @@ mgi_tr_merged <- map(
   set_names(glue("t{time_thresholds}_threshold"))
 
 for (i in seq_along(time_thresholds)) {
+    cli_alert_info(paste0("t", time_thresholds[i], " threshold for outcome ", opt$outcome))
   for (w in seq_along(weight_vars)) {
 
   data = mgi_tr_merged[[i]][group == "train", ]
@@ -260,7 +261,7 @@ for (i in seq_along(time_thresholds)) {
         mtry_grid             = NULL,
     min.node.size_grid = NULL,
     num_trees             = n_trees
-      ),
+      )},
       error = function(e) NULL)
       out[["wrf"]] <- wrf_mod
     }
