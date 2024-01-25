@@ -4,7 +4,8 @@
 
 # libraries, functions, and options --------------------------------------------
 ms::libri(
-  ms, data.table, MatchIt, glue, qs, cli, optparse, tidyverse, maxsal/aimTwo
+  ms, data.table, MatchIt, glue, qs, cli, optparse, tidyverse, maxsal/aimTwo,
+  maxsal/wglmnet
 )
 
 set.seed(61787)
@@ -107,7 +108,7 @@ out <- map(
       \(i) {
         cli_alert_info("t{time_thresholds[i]}")
         tune_models(
-          data      = mgi_tr_merged[[i]],
+          data      = mgi_tr_merged[[i]][group == "train", ],
           outcome   = "case",
           exposures = names(mgi_tr_merged[[i]])[names(mgi_tr_merged[[i]]) %in% ms::pheinfox[, phecode]],
           weight    = weight_vars[w],

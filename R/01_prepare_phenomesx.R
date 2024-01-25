@@ -392,6 +392,67 @@ if (also_ukb) {
 }
 cli_progress_done()
 
+# 9. PheWAS --------------------------------------------------------------------
+## mgi
+mgi_phewas_res <- map(
+  seq_along(mgi_prepped_data$tr_pim),
+  \(x) {
+    cli_progress_step(paste0("running phewas for time threshold ", time_thresholds[x]))
+    mgi_data <- mgi_prepped_data$tr_pim[[x]]
+    mgi_phecodes <- names(mgi_data)[names(mgi_data) %in% ms::pheinfox[, phecode]]
+    mgi_phewas_res <- ms::map_phewas(
+      data       = mgi_data,
+      outcome    = "case",
+      exposures  = mgi_phecodes,
+      covariates = c("age", "length_followup"),
+      method     = "glm",
+      workers    = min(c(detectCores() - 1, 8))
+    )
+  }
+)
+
+walk(
+  seq_along(mgi_phewas_res),
+  \(x) qsave(mgi_phewas_res[x], glue(
+    "results/mgi/{opt$mgi_version}/",
+    "{opt$outcome}/mgi_",
+    "{opt$mgi_version}_phewas_{opt$outcome}_",
+    "t{time_thresholds[x]}_",
+    "r{opt$matching_ratio}.qs"
+  ))
+)
+
+
+mgi_phewas_plots <- map(
+  seq_along(mgi_phewas_res),
+  \(x) {
+    plot_phewasx(
+      mgi_phewas_res[[x]],
+      phe_var = "phecode",
+      title = glue(
+        "PheWAS for {ms::pheinfox[phecode == opt$outcome, description]} ",
+        "[{opt$outcome}] at t = {time_thresholds[x]} in mgi"
+      )
+    )
+  }
+)
+
+walk(
+  seq_along(mgi_phewas_plots),
+  \(x) ggsave(
+    filename = glue(
+      "results/mgi/{opt$mgi_version}/{opt$outcome}/mgi_",
+      "{opt$mgi_version}_phewas_plot_{opt$outcome}_",
+      "t{time_thresholds[x]}_",
+      "r{opt$matching_ratio}.pdf"
+    ),
+    plot = mgi_phewas_plots[[x]],
+    width = 8,
+    height = 6,
+    device = cairo_pdf
+  )
+)
+
 # # 9. explore obesity-outcome relationship by threshold -------------------------
 # exposure <- "EM_236"
 
