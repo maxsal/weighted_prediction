@@ -1,6 +1,7 @@
 # libraries, functions, and options --------------------------------------------
 ms::libri(
-    ms, data.table, MatchIt, glue, qs, cli, optparse
+    ms, data.table, MatchIt, glue, qs, cli, optparse, tidyverse, survey, logistf,
+    brglm2
 )
 
 set.seed(61787)
@@ -22,21 +23,20 @@ option_list <- list(
         help = "Cohort of MGI used in weighting (comb, bb, mend, mhb) [default = %default]"
     ),
     make_option("--time_thresholds",
-        type = "character", default = "0,0.5,1,2,5",
+        type = "character", default = "0,1,2,5",
         help = glue(
             "Time thresholds for the phenome data ",
             "[default = %default]"
         )
     ),
-    make_option("--mod_type",
-        type = "character", default = "glm",
+    make_option("--matching_ratio",
+        type = "numeric", default = "2",
         help = glue(
-            "Type of model to use in cooccurrence analysis - ",
-            "glm, logistf or SPAtest [default = %default]"
+            "Number of controls per case [default = %default]"
         )
     ),
     make_option("--weights",
-        type = "character", default = "ip_selection,ps_selection",
+        type = "character", default = "ip_selection",
         help = glue(
             "Weighting variable to use for weighted analyses - ",
             "selection, all, or list of named weight variables [default = %default]"
@@ -62,17 +62,18 @@ mgi_tr_pims <- lapply(
         glue(
             "data/private/mgi/{opt$mgi_version}/{opt$outcome}/",
             "time_restricted_phenomes/mgi_{opt$outcome}_t",
-            "{time_thresholds[x]}_{opt$mgi_version}.qs"
+            "{time_thresholds[x]}_r{opt$matching_ratio}_{opt$mgi_version}.qs"
         ) |>
             read_qs()
     }
-)
-names(mgi_tr_pims) <- glue("t{time_thresholds}_threshold")
+) |> set_names(glue("t{time_thresholds}_threshold"))
 
 mgi_covariates <- read_qs(glue(
     "data/private/mgi/{opt$mgi_version}/{opt$outcome}/",
-    "matched_covariates.qs"
+    "matched_covariates_r{opt$matching_ratio}.qs"
 ))
+
+mgi_demo <- read_qs(glue("data/private/mgi/{opt$mgi_version}/datax_{opt$mgi_version}_{opt$mgi_cohort}.qs"))
 
 mgi_weights <- read_qs(glue("data/private/mgi/{opt$mgi_version}/weightsx_{opt$mgi_version}_{opt$mgi_cohort}.qs"))
 
@@ -99,44 +100,46 @@ weight_id <- c("id", weight_vars)
 mgi_tr_merged <- lapply(
     names(mgi_tr_pims),
     \(x) {
-        merge_list(list(mgi_tr_pims[[x]], mgi_covariates[, !c("case")], mgi_weights[, ..weight_id]), by_var = "id", join_fn = dplyr::left_join)[, `:=`(
+        merge_list(list(mgi_tr_pims[[x]], mgi_covariates[, !c("case")], mgi_weights[, ..weight_id], mgi_demo[, .(id, race_eth, smoker, drinker, nhw)]), by_var = "id", join_fn = dplyr::left_join)[, `:=`(
             age_at_threshold = round(get(x) / 365.25, 1)
-        )]
+        )][group == "test", ]
     }
 )
 names(mgi_tr_merged) <- glue("t{time_thresholds}_threshold")
 
 
-data[, `:=` (
-    race_eth = relevel(factor(fcase(
-    race == "Caucasian" & ethn == "Non-Hispanic", "NHW",
-    race == "African America" & ethn == "Non-Hispanic", "NHB",
-    race == "Asian" & ethn == "Non-Hispanic", "NHA",
-    ethn == "Hispanic", "Hisp",
-    race %in% c("Native American") & ethn != "", "Other",
-    default = "Unknown"
-    )), ref = "NHW")
-)]
+# data[, `:=` (
+#     race_eth = relevel(factor(fcase(
+#     race == "Caucasian" & ethn == "Non-Hispanic", "NHW",
+#     race == "African America" & ethn == "Non-Hispanic", "NHB",
+#     race == "Asian" & ethn == "Non-Hispanic", "NHA",
+#     ethn == "Hispanic", "Hisp",
+#     race %in% c("Native American") & ethn != "", "Other",
+#     default = "Unknown"
+#     )), ref = "NHW")
+# )]
 
 #### CASCADE
 outcome_phecode <- opt$outcome
 outcome <- "case"
-weight_var <- "weight"
+weight_var <- "ip_selection"
 data <- "" # contains id, outcome, weight, covariates, risk factors, symptoms
 
 data <- mgi_tr_merged[[1]]
 
 # prepare covariates
-covariates <- c("age", "female", "race_eth")
+covariates <- c("age_at_threshold", "female", "nhw")
 
 risk_factor_table <- fread("data/public/dig_can_risk_factors.csv") # add to github
 risk_factors <- risk_factor_table[outcome_phecode == outcome_phecode, unique(risk_factor_variable)]
 risk_factors[risk_factors == "alcohol_ever"] <- "drinker"
 risk_factors[risk_factors == "smoke_ever"] <- "smoker"
+risk_factors <- risk_factors[risk_factors %in% names(data)]
 
 symptoms_table <- fread("data/public/dig_can_symptoms.csv") # add to github
 symptoms <- symptoms_table[outcome_phecode == outcome_phecode, unique(symptom_phecode)]
 symptoms <- symptoms[symptoms != ""]
+symptoms <- symptoms[symptoms %in% names(data)]
 
 ### THESE ARE ONCE PER OUTCOME
 # covariates (non-modifiable) ONCE PER OUTCOME
@@ -145,14 +148,19 @@ cov_f <- paste0(covariates, collapse = " + ")
 cov_un <- glm(
     formula = paste0(outcome, " ~ ", cov_f),
     data = data,
-    family = binomial(link = "logit")
+    family = binomial(link = "logit"),
+    method = "brglmFit"
 )
 ## weighted
-cov_w <- glm(
+cov_dsn <- svydesign(
+    id = ~ 1,
+    weights = ~ get(weight_var),
+    data = data[!is.na(get(weight_var)), ]
+)
+cov_w <- svyglm(
     formula = paste0(outcome, " ~ ", cov_f),
-    data = data,
-    family = binomial(link = "logit"),
-    weights = data[[weight_var]]
+    family = "quasibinomial",
+    design = cov_dsn
 )
 
 # risk factors (modifiable) ONCE PER OUTCOME
@@ -161,14 +169,19 @@ risk_f <- paste0(risk_factors, collapse = " + ")
 risk_un <- glm(
     formula = paste0(outcome, " ~ ", risk_f),
     data = data,
-    family = binomial(link = "logit")
+    family = binomial(link = "logit"),
+    method = "brglmFit"
 )
 ## weighted
-risk_w <- glm(
+risk_dsn <- svydesign(
+    id = ~ 1,
+    weights = ~ get(weight_var),
+    data = data[!is.na(get(weight_var)), ]
+)
+risk_w <- svyglm(
     formula = paste0(outcome, " ~ ", risk_f),
-    data = data,
-    family = binomial(link = "logit"),
-    weights = data[[weight_var]]
+    family = "quasibinomial",
+    design = risk_dsn
 )
 
 # symptoms ONCE PER OUTCOME
@@ -177,14 +190,19 @@ symptoms_f <- paste0(symptoms, collapse = " + ")
 symptoms_un <- glm(
     formula = paste0(outcome, " ~ ", symptoms_f),
     data = data,
-    family = binomial(link = "logit")
+    family = binomial(link = "logit"),
+    method = "brglmFit"
 )
 ## weighted
-symptoms_w <- glm(
+symptoms_dsn <- svydesign(
+    id = ~ 1,
+    weights = ~ get(weight_var),
+    data = data[!is.na(get(weight_var)), ]
+)
+symptoms_w <- svyglm(
     formula = paste0(outcome, " ~ ", symptoms_f),
-    data = data,
-    family = binomial(link = "logit"),
-    weights = data[[weight_var]]
+    family = "quasibinomial",
+    design = symptoms_dsn
 )
 
 # covariates, risk factors, symptoms ONCE PER OUTCOME
@@ -194,15 +212,26 @@ crs_f <- paste0(cov_f, " + ", risk_f, " + ", symptoms_f)
 crs_un <- glm(
     formula = paste0(outcome, " ~ ", crs_f),
     data = data,
-    family = binomial(link = "logit")
+    family = binomial(link = "logit"),
+    method = "brglmFit"
 )
 ## weighted
-crs_w <- glm(
-    formula = paste0(outcome, " ~ ", crs_f),
-    data = data,
-    family = binomial(link = "logit"),
-    weights = data[[weight_var]]
+crs_design <- survey::svydesign(
+    id = ~ 1,
+    weights = ~ get(weight_var),
+    data = data[!is.na(get(weight_var)), ]
 )
+crs_w <- svyglm(
+    formula = paste0(outcome, " ~ ", crs_f),
+    design = crs_design,
+    family = "quasibinomial"
+)
+
+tmp <- data.table(
+    case = data[!is.na(get(weight_var)), case],
+    pred = crs_w$fitted.values
+)
+pROC::ci.auc(pROC::roc(tmp$case, tmp$pred))
 
 ### THESE ARE SEVERAL PER OUTCOME
 # phers SEVERAL PER OUTCOME
