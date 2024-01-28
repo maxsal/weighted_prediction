@@ -10,7 +10,7 @@ for (i in list.files("fn/", full.names = TRUE)) source(i)
 # optparse list ----------------------------------------------------------------
 option_list <- list(
     make_option("--outcome",
-        type = "character", default = "CA_101.1",
+        type = "character", default = "CA_101.6",
         help = "Outcome phecode [default = %default]"
     ),
     make_option("--mgi_version",
@@ -178,9 +178,9 @@ mgi_tr_pims <- map(
     }
 ) |> set_names(glue("t{time_thresholds}_threshold"))
 
-mgi_covariates <- read_qs(glue(
+mgi_covariates <- qread(glue(
     "data/private/mgi/{opt$mgi_version}/{opt$outcome}/",
-    "matched_covariates_r{opt$matching_ratio}.qs"
+    "mgi_{opt$mgi_version}_{opt$outcome}_match_data_r{opt$matching_ratio}.qs"
 ))
 
 mgi_demo <- read_qs(glue("data/private/mgi/{opt$mgi_version}/datax_{opt$mgi_version}_{opt$mgi_cohort}.qs"))
