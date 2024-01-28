@@ -10,7 +10,7 @@ for (i in list.files("fn/", full.names = TRUE)) source(i)
 # optparse list ----------------------------------------------------------------
 option_list <- list(
     make_option("--outcome",
-        type = "character", default = "CA_101.6",
+        type = "character", default = "CA_101.1",
         help = "Outcome phecode [default = %default]"
     ),
     make_option("--mgi_version",
@@ -166,15 +166,15 @@ try_glmnet <- function(
 
 # read data --------------------------------------------------------------------
 ## mgi
-mgi_tr_pims <- lapply(
+mgi_tr_pims <- map(
     seq_along(time_thresholds),
     \(x) {
         glue(
             "data/private/mgi/{opt$mgi_version}/{opt$outcome}/",
-            "time_restricted_phenomes/mgi_{opt$outcome}_t",
-            "{time_thresholds[x]}_r{opt$matching_ratio}_{opt$mgi_version}.qs"
+            "time_restricted_phenomes/mgi_{opt$mgi_version}_{opt$outcome}_t",
+            "{time_thresholds[x]}_pim_r{opt$matching_ratio}.qs"
         ) |>
-            read_qs()
+            qread()
     }
 ) |> set_names(glue("t{time_thresholds}_threshold"))
 
