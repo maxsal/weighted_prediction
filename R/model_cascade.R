@@ -10,7 +10,7 @@ for (i in list.files("fn/", full.names = TRUE)) source(i)
 # optparse list ----------------------------------------------------------------
 option_list <- list(
     make_option("--outcome",
-        type = "character", default = "CA_101.6",
+        type = "character", default = "CA_101.8",
         help = "Outcome phecode [default = %default]"
     ),
     make_option("--mgi_version",
@@ -245,12 +245,12 @@ for (i in seq_along(time_thresholds)) {
     # risk_factors <- risk_factor_table[outcome_phecode == outcome_phecode, unique(risk_factor_variable)]
     # risk_factors[risk_factors == "alcohol_ever"] <- "drinker"
     # risk_factors[risk_factors == "smoke_ever"] <- "smoker"
-    # risk_factors <- risk_factors[risk_factors %in% names(data)]
+    # risk_factors <- unique(risk_factors[risk_factors %in% names(data)])
 
     # symptoms_table <- fread("data/public/dig_can_symptoms.csv") # add to github
     # symptoms <- symptoms_table[outcome_phecode == outcome_phecode, unique(symptom_phecode)]
     # symptoms <- symptoms[symptoms != ""]
-    # symptoms <- symptoms[symptoms %in% names(data)]
+    # symptoms <- unique(symptoms[symptoms %in% names(data)])
 
     # cascade_design <- survey::svydesign(
     #     id = ~ 1,
@@ -325,6 +325,14 @@ for (i in seq_along(time_thresholds)) {
         opt$outcome, "/mgi_", opt$mgi_version, "_", opt$outcome,
         "_t", time_thresholds[i], "_train_hyperparameters_ip_selection.csv"
     ))
+
+        for (j in paste0("ridge_", c("alpha", "lambda.min", "lambda.1se"))) {
+            if (length(which(hyperparameters[, parameter] == j)) == 1) next
+            hyperparameters[
+                which(hyperparameters[, parameter] == j)[2],
+                parameter := paste0("w", parameter)
+            ]
+        }
 
     for (j in paste0("lasso_", c("alpha", "lambda.min", "lambda.1se"))) {
         if (length(which(hyperparameters[, parameter] == j)) == 1) next
