@@ -210,7 +210,7 @@ weight_id <- c("id", weight_vars)
 mgi_tr_merged <- lapply(
     names(mgi_tr_pims),
     \(x) {
-        merge_list(list(mgi_tr_pims[[x]], mgi_covariates[, !c("case")], mgi_weights[, ..weight_id], mgi_demo[, .(id, race_eth, smoker, drinker, nhw)]), by_var = "id", join_fn = dplyr::left_join)[, `:=`(
+        merge_list(list(mgi_tr_pims[[x]], mgi_covariates[, !c("case")], mgi_weights[, ..weight_id]), by_var = "id", join_fn = dplyr::left_join)[, `:=`(
             age_at_threshold = round(get(x) / 365.25, 1)
         )][group == "test", ]
     }
@@ -238,83 +238,100 @@ for (i in seq_along(time_thresholds)) {
     cli_progress_step(glue("fitting phers for {opt$outcome} at t = {time_thresholds[i]}"))
     data <- mgi_tr_merged[[i]][group == "test", ]
 
-    # # prepare covariates
-    # covariates <- c("age_at_threshold", "female", "nhw")
+    # prepare covariates
+    covariates <- c("age_at_threshold", "female", "nhw")
 
-    # risk_factor_table <- fread("data/public/dig_can_risk_factors.csv") # add to github
-    # risk_factors <- risk_factor_table[outcome_phecode == outcome_phecode, unique(risk_factor_variable)]
-    # risk_factors[risk_factors == "alcohol_ever"] <- "drinker"
-    # risk_factors[risk_factors == "smoke_ever"] <- "smoker"
-    # risk_factors <- unique(risk_factors[risk_factors %in% names(data)])
+    risk_factor_table <- fread("data/public/dig_can_risk_factors.csv") # add to github
+    risk_factors <- risk_factor_table[outcome_phecode == outcome_phecode, unique(risk_factor_variable)]
+    risk_factors[risk_factors == "alcohol_ever"] <- "drinker"
+    risk_factors[risk_factors == "smoke_ever"] <- "smoker"
+    risk_factors <- unique(risk_factors[risk_factors %in% names(data)])
 
-    # symptoms_table <- fread("data/public/dig_can_symptoms.csv") # add to github
-    # symptoms <- symptoms_table[outcome_phecode == outcome_phecode, unique(symptom_phecode)]
-    # symptoms <- symptoms[symptoms != ""]
-    # symptoms <- unique(symptoms[symptoms %in% names(data)])
+    symptoms_table <- fread("data/public/dig_can_symptoms.csv") # add to github
+    symptoms <- symptoms_table[outcome_phecode == outcome_phecode, unique(symptom_phecode)]
+    symptoms <- symptoms[symptoms != ""]
+    symptoms <- unique(symptoms[symptoms %in% names(data)])
 
-    # cascade_design <- survey::svydesign(
-    #     id = ~ 1,
-    #     weights = ~ get(weight_var),
-    #     data = data[!is.na(get(weight_var)), ]
-    # )
+    ### THESE ARE ONCE PER OUTCOME
+    # covariates (non-modifiable) ONCE PER OUTCOME
+    cov_f <- paste0(covariates, collapse = " + ")
+    ## unweighted
+    cov_un <- logistf::logistf(
+        formula = paste0(outcome, " ~ ", cov_f),
+        data = data
+    ) |> aimTwo::betas_from_mod(intercept = TRUE)
+    ## weighted
+    cov_w <- logistf::logistf(
+        formula = paste0(outcome, " ~ ", cov_f),
+        data = data[!is.na(get(weight_var)), ],
+        weights = data[!is.na(get(weight_var)), ][[weight_var]],
+        control = logistf.control(maxit = 100, maxstep = 0.5)
+    ) |> aimTwo::betas_from_mod(intercept = TRUE)
 
-    # ### THESE ARE ONCE PER OUTCOME
-    # # covariates (non-modifiable) ONCE PER OUTCOME
-    # cov_f <- paste0(covariates, collapse = " + ")
-    # ## unweighted
-    # cov_un <- logistf::logistf(
-    #     formula = paste0(outcome, " ~ ", cov_f),
-    #     data = data
-    # )
-    # ## weighted
-    # cov_w <- svyglm(
-    #     formula = paste0(outcome, " ~ ", cov_f),
-    #     family = "quasibinomial",
-    #     design = cascade_design
-    # )
+    # risk factors (modifiable) ONCE PER OUTCOME
+    risk_f <- paste0(risk_factors, collapse = " + ")
+    ## unweighted
+    risk_un <- logistf::logistf(
+        formula = paste0(outcome, " ~ ", risk_f),
+        data = data
+    ) |> aimTwo::betas_from_mod(intercept = TRUE)
+    ## weighted
+    risk_w <- logistf::logistf(
+        formula = paste0(outcome, " ~ ", risk_f),
+        data = data[!is.na(get(weight_var)), ],
+        weights = data[!is.na(get(weight_var)), ][[weight_var]],
+        control = logistf.control(maxit = 100, maxstep = 0.5)
+    ) |> aimTwo::betas_from_mod(intercept = TRUE)
 
-    # # risk factors (modifiable) ONCE PER OUTCOME
-    # risk_f <- paste0(risk_factors, collapse = " + ")
-    # ## unweighted
-    # risk_un <- logistf::logistf(
-    #     formula = paste0(outcome, " ~ ", risk_f),
-    #     data = data
-    # )
-    # ## weighted
-    # risk_w <- svyglm(
-    #     formula = paste0(outcome, " ~ ", risk_f),
-    #     family = "quasibinomial",
-    #     design = cascade_design
-    # )
+    # symptoms ONCE PER OUTCOME
+    symptoms_f <- paste0(symptoms, collapse = " + ")
+    ## unweighted
+    symptoms_un <- logistf::logistf(
+        formula = paste0(outcome, " ~ ", symptoms_f),
+        data = data
+    ) |> aimTwo::betas_from_mod(intercept = TRUE)
+    ## weighted
+    symptoms_w <- logistf::logistf(
+        formula = paste0(outcome, " ~ ", symptoms_f),
+        data = data[!is.na(get(weight_var)), ],
+        weights = data[!is.na(get(weight_var)), ][[weight_var]],
+        control = logistf.control(maxit = 100, maxstep = 0.5)
+    ) |> aimTwo::betas_from_mod(intercept = TRUE)
 
-    # # symptoms ONCE PER OUTCOME
-    # symptoms_f <- paste0(symptoms, collapse = " + ")
-    # ## unweighted
-    # symptoms_un <- logistf::logistf(
-    #     formula = paste0(outcome, " ~ ", symptoms_f),
-    #     data = data
-    # )
-    # ## weighted
-    # symptoms_w <- svyglm(
-    #     formula = paste0(outcome, " ~ ", symptoms_f),
-    #     family = "quasibinomial",
-    #     design = cascade_design
-    # )
+    # covariates, risk factors, symptoms ONCE PER OUTCOME
+    crs_f <- paste0(unique(c(cov_f, risk_f, symptoms_f)), collapse = " + ")
+    ## unweighted
+    crs_un <- logistf::logistf(
+        formula = paste0(outcome, " ~ ", crs_f),
+        data = data,
+        control = logistf.control(maxit = 100, maxstep = 0.5)
+    ) |> aimTwo::betas_from_mod(intercept = TRUE)
+    ## weighted
+    crs_w <- logistf::logistf(
+        formula = paste0(outcome, " ~ ", crs_f),
+        data = data[!is.na(get(weight_var)), ],
+        weights = data[!is.na(get(weight_var)), ][[weight_var]],
+        control = logistf.control(maxit = 100, maxstep = 0.5)
+    ) |> aimTwo::betas_from_mod(intercept = TRUE)
 
-    # # covariates, risk factors, symptoms ONCE PER OUTCOME
-    # crs_f <- paste0(unique(c(cov_f, risk_f, symptoms_f)), collapse = " + ")
-    # ## unweighted
-    # crs_un <- logistf::logistf(
-    #     formula = paste0(outcome, " ~ ", crs_f),
-    #     data = data,
-    #     control = logistf.control(maxit = 100, maxstep = 0.5)
-    # )
-    # ## weighted
-    # crs_w <- svyglm(
-    #     formula = paste0(outcome, " ~ ", crs_f),
-    #     design = cascade_design,
-    #     family = "quasibinomial"
-    # )
+    cascade_models <- list(
+        covariates_unweighted = cov_un,
+        covariates_weighted = cov_w,
+        risk_factors_unweighted = risk_un,
+        risk_factors_weighted = risk_w,
+        symptoms_unweighted = symptoms_un,
+        symptoms_weighted = symptoms_w,
+        covariates_risk_factors_symptoms_unweighted = crs_un,
+        covariates_risk_factors_symptoms_weighted = crs_w
+    )
+
+    qsave(
+        cascade_models,
+        file = glue(
+            "results/mgi/{opt$mgi_version}/{opt$outcome}/",
+            "mgi_{opt$mgi_version}_{opt$outcome}_t{time_thresholds[i]}_cascade_models.qs"
+        )
+    )
 
     ### THESE ARE SEVERAL PER OUTCOME
     # phers SEVERAL PER OUTCOME
@@ -360,7 +377,6 @@ for (i in seq_along(time_thresholds)) {
         alt_lambda = hyperparameters[parameter == "ridge_lambda.1se", value],
         family = "binomial"
     )
-    ridge_un_pred <- predict(ridge_un, newx = as.matrix(data[, ..ex_vars]), type = "response")
 
     # lasso
     lasso_un <- try_glmnet(
@@ -371,7 +387,6 @@ for (i in seq_along(time_thresholds)) {
         alt_lambda = hyperparameters[parameter == "lasso_lambda.1se", value],
         family = "binomial"
     )
-    lasso_un_pred <- predict(lasso_un, newx = as.matrix(data[, ..ex_vars]), type = "response")
 
     # enet
     enet_un <- try_glmnet(
@@ -382,7 +397,6 @@ for (i in seq_along(time_thresholds)) {
         alt_lambda = hyperparameters[parameter == "enet_lambda.1se", value],
         family = "binomial"
     )
-    enet_un_pred <- predict(enet_un, newx = as.matrix(data[, ..ex_vars]), type = "response")
 
     # rf
     f <- as.formula(paste0("case ~ ", paste0(ex_vars, collapse = " + ")))
@@ -396,7 +410,6 @@ for (i in seq_along(time_thresholds)) {
         importance    = "permutation",
         write.forest  = TRUE
     )
-    rf_un_pred <- predict(rf_un, data = as.matrix(data[, ..ex_vars]), type = "response")
 
     ## weighted
     # ridge
@@ -409,7 +422,6 @@ for (i in seq_along(time_thresholds)) {
         alt_lambda = hyperparameters[parameter == "wridge_lambda.1se", value],
         family = "binomial"
     )
-    ridge_w_pred <- predict(ridge_w, newx = as.matrix(data[!is.na(get(weight_var)), ..ex_vars]), type = "response")
 
     # lasso
     lasso_w <- try_glmnet(
@@ -421,7 +433,6 @@ for (i in seq_along(time_thresholds)) {
         alt_lambda = hyperparameters[parameter == "wlasso_lambda.1se", value],
         family = "binomial"
     )
-    lasso_w_pred <- predict(lasso_w, newx = as.matrix(ms::data0(data[!is.na(get(weight_var)), ], vars = rownames(lasso_w$beta))), type = "response")
 
     # enet
     enet_w <- try_glmnet(
@@ -434,7 +445,6 @@ for (i in seq_along(time_thresholds)) {
         weight_as_pred = TRUE,
         family = "binomial"
     )
-    enet_w_pred <- predict(enet_w, newx = as.matrix(ms::data0(data[!is.na(get(weight_var)), ], vars = rownames(enet_w$beta))), type = "response")
 
     # rf
     rf_w <- ranger(
@@ -448,7 +458,6 @@ for (i in seq_along(time_thresholds)) {
         write.forest  = TRUE,
         case.weights       = data[!is.na(get(weight_var)), get(weight_var)]
     )
-    rf_w_pred <- predict(rf_w, data = as.matrix(data[, ..ex_vars]), type = "response")$predictions
 
 
     # ### for EACH phers, also obtain fitted (standardized) predictions for use in
