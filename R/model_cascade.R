@@ -10,7 +10,7 @@ for (i in list.files("fn/", full.names = TRUE)) source(i)
 # optparse list ----------------------------------------------------------------
 option_list <- list(
     make_option("--outcome",
-        type = "character", default = "CA_101.8",
+        type = "character", default = "CA_101.1",
         help = "Outcome phecode [default = %default]"
     ),
     make_option("--mgi_version",
@@ -173,6 +173,28 @@ more_than_one_unique <- function(dt, var_names) {
     return(var_names[sapply(var_names, function(v) length(unique(dt[[v]])) > 1)])
 }
 
+keep_top_phecodes <- function(vec) {
+    # Identify 'integer' and 'decimal' versions separately
+    has_decimal <- grepl("\\.", vec)
+    vec_decimal <- vec[has_decimal]
+    vec_integer <- vec[!has_decimal]
+
+    # Keep decimal version only when the integer version is missing
+    vec_decimal_to_keep <- sapply(vec_decimal, function(x) {
+        prefix <- sub("_.*", "", x)
+        integer_version <- paste0(prefix, "_", floor(as.numeric(sub(".*_", "", x))))
+        if (!(integer_version %in% vec_integer)) {
+            return(x)
+        }
+    })
+
+    # Combine integers and decimals that should be kept
+    vec_final <- c(vec_integer, vec_decimal_to_keep[!is.null(vec_decimal_to_keep)])
+
+    # Return cleaned vector
+    return(as.character(unlist(vec_final)))
+}
+
 
 # read data --------------------------------------------------------------------
 ## mgi
@@ -283,14 +305,15 @@ for (i in seq_along(time_thresholds)) {
     ) |> aimTwo::betas_from_mod(intercept = TRUE)
 
     # risk factors (modifiable) ONCE PER OUTCOME
-    risk_factors <- more_than_one_unique(data, risk_factors)
+    risk_factors <- more_than_one_unique(data, risk_factors) |>
+        keep_top_phecodes()
     risk_f <- paste0(risk_factors, collapse = " + ")
     ## unweighted
     risk_un <- logistf::logistf(
         formula = paste0(outcome, " ~ ", risk_f),
         data = data,
-        control = logistf.control(maxit = 100, maxstep = 0.5),
-        plcontrol = logistf.control(maxit = 10000, maxstep = 0.5)
+        control = logistf.control(maxit = 100000, maxstep = 0.5),
+        plcontrol = logistf.control(maxit = 100000, maxstep = 0.5)
     ) |> aimTwo::betas_from_mod(intercept = TRUE)
     ## weighted
     risk_w <- logistf::logistf(
@@ -302,7 +325,8 @@ for (i in seq_along(time_thresholds)) {
     ) |> aimTwo::betas_from_mod(intercept = TRUE)
 
     # symptoms ONCE PER OUTCOME
-    symptoms <- more_than_one_unique(data, symptoms)
+    symptoms <- more_than_one_unique(data, symptoms) |>
+        keep_top_phecodes()
     symptoms_f <- paste0(symptoms, collapse = " + ")
     ## unweighted
     symptoms_un <- logistf::logistf(
@@ -321,7 +345,7 @@ for (i in seq_along(time_thresholds)) {
     ) |> aimTwo::betas_from_mod(intercept = TRUE)
 
     # covariates, risk factors, symptoms ONCE PER OUTCOME
-    crs_f <- paste0(unique(c(covariates, risk_factors, symptoms)), collapse = " + ")
+    crs_f <- paste0(keep_top_phecodes(unique(c(covariates, risk_factors, symptoms))), collapse = " + ")
     ## unweighted
     crs_un <- logistf::logistf(
         formula = paste0(outcome, " ~ ", crs_f),
