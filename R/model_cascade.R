@@ -269,14 +269,17 @@ for (i in seq_along(time_thresholds)) {
     ## unweighted
     cov_un <- logistf::logistf(
         formula = paste0(outcome, " ~ ", cov_f),
-        data = data
+        data = data,
+        control = logistf.control(maxit = 100, maxstep = 0.5),
+        plcontrol = logistf.control(maxit = 10000, maxstep = 0.5)
     ) |> aimTwo::betas_from_mod(intercept = TRUE)
     ## weighted
     cov_w <- logistf::logistf(
         formula = paste0(outcome, " ~ ", cov_f),
         data = data[!is.na(get(weight_var)), ],
         weights = data[!is.na(get(weight_var)), ][[weight_var]],
-        control = logistf.control(maxit = 100, maxstep = 0.5)
+        control = logistf.control(maxit = 100, maxstep = 0.5),
+        plcontrol = logistf.control(maxit = 10000, maxstep = 0.5)
     ) |> aimTwo::betas_from_mod(intercept = TRUE)
 
     # risk factors (modifiable) ONCE PER OUTCOME
@@ -285,14 +288,17 @@ for (i in seq_along(time_thresholds)) {
     ## unweighted
     risk_un <- logistf::logistf(
         formula = paste0(outcome, " ~ ", risk_f),
-        data = data
+        data = data,
+        control = logistf.control(maxit = 100, maxstep = 0.5),
+        plcontrol = logistf.control(maxit = 10000, maxstep = 0.5)
     ) |> aimTwo::betas_from_mod(intercept = TRUE)
     ## weighted
     risk_w <- logistf::logistf(
         formula = paste0(outcome, " ~ ", risk_f),
         data = data[!is.na(get(weight_var)), ],
         weights = data[!is.na(get(weight_var)), ][[weight_var]],
-        control = logistf.control(maxit = 100, maxstep = 0.5)
+        control = logistf.control(maxit = 100, maxstep = 0.5),
+        plcontrol = logistf.control(maxit = 10000, maxstep = 0.5)
     ) |> aimTwo::betas_from_mod(intercept = TRUE)
 
     # symptoms ONCE PER OUTCOME
@@ -301,14 +307,17 @@ for (i in seq_along(time_thresholds)) {
     ## unweighted
     symptoms_un <- logistf::logistf(
         formula = paste0(outcome, " ~ ", symptoms_f),
-        data = data
+        data = data,
+        control = logistf.control(maxit = 100, maxstep = 0.5),
+        plcontrol = logistf.control(maxit = 10000, maxstep = 0.5)
     ) |> aimTwo::betas_from_mod(intercept = TRUE)
     ## weighted
     symptoms_w <- logistf::logistf(
         formula = paste0(outcome, " ~ ", symptoms_f),
         data = data[!is.na(get(weight_var)), ],
         weights = data[!is.na(get(weight_var)), ][[weight_var]],
-        control = logistf.control(maxit = 100, maxstep = 0.5)
+        control = logistf.control(maxit = 100, maxstep = 0.5),
+        plcontrol = logistf.control(maxit = 10000, maxstep = 0.5)
     ) |> aimTwo::betas_from_mod(intercept = TRUE)
 
     # covariates, risk factors, symptoms ONCE PER OUTCOME
@@ -317,14 +326,16 @@ for (i in seq_along(time_thresholds)) {
     crs_un <- logistf::logistf(
         formula = paste0(outcome, " ~ ", crs_f),
         data = data,
-        control = logistf.control(maxit = 100, maxstep = 0.5)
+        control = logistf.control(maxit = 100, maxstep = 0.5),
+        plcontrol = logistf.control(maxit = 10000, maxstep = 0.5)
     ) |> aimTwo::betas_from_mod(intercept = TRUE)
     ## weighted
     crs_w <- logistf::logistf(
         formula = paste0(outcome, " ~ ", crs_f),
         data = data[!is.na(get(weight_var)), ],
         weights = data[!is.na(get(weight_var)), ][[weight_var]],
-        control = logistf.control(maxit = 100, maxstep = 0.5)
+        control = logistf.control(maxit = 100, maxstep = 0.5),
+        plcontrol = logistf.control(maxit = 10000, maxstep = 0.5)
     ) |> aimTwo::betas_from_mod(intercept = TRUE)
 
     cascade_models <- list(
