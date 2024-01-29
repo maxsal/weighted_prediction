@@ -163,6 +163,16 @@ try_glmnet <- function(
             )
                     }
 
+more_than_one_unique <- function(dt, var_names) {
+    # Check if var_names are in the columns of dt
+    if (!all(var_names %in% names(dt))) {
+        stop("Some variables are not in the data.table.")
+    }
+
+    # Apply the function to each variable and return those with more than one unique value
+    return(var_names[sapply(var_names, function(v) length(unique(dt[[v]])) > 1)])
+}
+
 
 # read data --------------------------------------------------------------------
 ## mgi
@@ -254,6 +264,7 @@ for (i in seq_along(time_thresholds)) {
 
     ### THESE ARE ONCE PER OUTCOME
     # covariates (non-modifiable) ONCE PER OUTCOME
+    covariates <- more_than_one_unique(data, covariates)
     cov_f <- paste0(covariates, collapse = " + ")
     ## unweighted
     cov_un <- logistf::logistf(
@@ -269,6 +280,7 @@ for (i in seq_along(time_thresholds)) {
     ) |> aimTwo::betas_from_mod(intercept = TRUE)
 
     # risk factors (modifiable) ONCE PER OUTCOME
+    risk_factors <- more_than_one_unique(data, risk_factors)
     risk_f <- paste0(risk_factors, collapse = " + ")
     ## unweighted
     risk_un <- logistf::logistf(
@@ -284,6 +296,7 @@ for (i in seq_along(time_thresholds)) {
     ) |> aimTwo::betas_from_mod(intercept = TRUE)
 
     # symptoms ONCE PER OUTCOME
+    symptoms <- more_than_one_unique(data, symptoms)
     symptoms_f <- paste0(symptoms, collapse = " + ")
     ## unweighted
     symptoms_un <- logistf::logistf(
@@ -299,7 +312,7 @@ for (i in seq_along(time_thresholds)) {
     ) |> aimTwo::betas_from_mod(intercept = TRUE)
 
     # covariates, risk factors, symptoms ONCE PER OUTCOME
-    crs_f <- paste0(unique(c(cov_f, risk_f, symptoms_f)), collapse = " + ")
+    crs_f <- paste0(unique(c(covariates, risk_factors, symptoms)), collapse = " + ")
     ## unweighted
     crs_un <- logistf::logistf(
         formula = paste0(outcome, " ~ ", crs_f),
