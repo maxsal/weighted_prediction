@@ -205,9 +205,9 @@ logistf_coefficient_summary <- function(
     cor_cutoff = 0.25) {
     hits <- hits[hits %in% names(data)]
     if (length(hits) == 0) return(data.table())
-    tryCatch({
+    multi_mod <- tryCatch({
         multi_mod_covs <- paste0(c(covs, hits), collapse = " + ")
-        multi_mod <- logistf::logistf(
+        logistf::logistf(
             formula = as.formula(paste0("case ~ ", multi_mod_covs)),
             data = data,
             pl = FALSE,
@@ -220,7 +220,7 @@ logistf_coefficient_summary <- function(
         remove_these <- caret::findCorrelation(cor(data[, ..multi_values]), cutoff = cor_cutoff, names = TRUE)
         hits <- multi_values[!multi_values %in% remove_these]
         multi_mod_covs <- paste0(c(covs, hits), collapse = " + ")
-        multi_mod <- logistf::logistf(
+        logistf::logistf(
             formula = as.formula(paste0("case ~ ", multi_mod_covs)),
             data = data,
             pl = FALSE,
@@ -277,10 +277,10 @@ wlogistf_coefficient_summary <- function(
     if (length(hits) == 0) {
         return(data.table())
     }
-    tryCatch(
+    multi_mod <- tryCatch(
         {
             multi_mod_covs <- paste0(c(covs, hits), collapse = " + ")
-            multi_mod <- logistf::logistf(
+            logistf::logistf(
                 formula = as.formula(paste0("case ~ ", multi_mod_covs)),
                 data = data,
                 weights = weights,
@@ -294,7 +294,7 @@ wlogistf_coefficient_summary <- function(
             remove_these <- caret::findCorrelation(cor(data[, ..multi_values]), cutoff = cor_cutoff, names = TRUE)
             hits <- multi_values[!multi_values %in% remove_these]
             multi_mod_covs <- paste0(c(covs, hits), collapse = " + ")
-            multi_mod <- logistf::logistf(
+            logistf::logistf(
                 formula = as.formula(paste0("case ~ ", multi_mod_covs)),
                 data = data,
                 pl = FALSE,
