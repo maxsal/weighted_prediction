@@ -310,6 +310,53 @@ names(mgi_tr_merged) <- glue("t{time_thresholds}_threshold")
 #     )), ref = "NHW")
 # )]
 
+### load two step
+calculate_phers <- function(
+    pim,
+    weight_data,
+    id_var = "id",
+    trait_var = "phecode",
+    weight_var = "beta",
+    name) {
+    codes <- 0
+    if (nrow(weight_data) == 0) {
+        cli_alert_warning("No results for {name}, skipping")
+        return(data.table(phers = NA, name = name, codes = codes))
+    }
+    out <- data.table::copy(as.data.table(pim))[, pred := 0]
+    for (i in weight_data[[trait_var]]) {
+        if (!(i %in% names(out))) {
+            cli_alert_warning("{i} not in phecode indicator matrix, skipping")
+            next
+        }
+        codes <- codes + 1
+        out[, pred := pred + (weight_data[get(trait_var) == i, get(weight_var)] * get(i))]
+    }
+    out[, phers := scale(pred)]
+    out[, .(id, case, pred, phers, name = name, codes = codes)]
+}
+
+two_step <- qread(glue(
+    "results/mgi/{opt$mgi_version}/{opt$outcome}/",
+    "mgi_{opt$outcome}_r{opt$matching_ratio}_results_list.qs",
+))
+
+two_step_phers <- map(
+    seq_along(two_step),
+    \(i) {
+        calculate_phers(
+            pim = data,
+            weight_data = two_step[[i]],
+            id_var = "id",
+            trait_var = "phecode",
+            weight_var = "beta",
+            name = names(two_step)[i]
+        )[, t := stringr::str_match(names(two_step)[[i]], "t(.*?)_")[, 2]]
+    },
+    .progress = TRUE
+) |> set_names(names(two_step))
+
+
 #### CASCADE
 outcome_phecode <- opt$outcome
 outcome <- "case"
@@ -599,15 +646,35 @@ for (i in seq_along(time_thresholds)) {
         weighted_rf = rf_w
     )
 
+
+    # two-step phers and crsp models
+    two_step_at_t <- which(map_chr(names(two_step), \(j) stringr::str_match(j, "t(.*?)_")[, 2]) == as.character(time_thresholds[i]))
+    two_step_now <- two_step_phers[two_step_at_t]
+
+    two_step_simp <- map(
+        two_step_now,
+        \(x) {
+            new_name <- paste0(gsub(paste0("t", time_thresholds[i], "_"), "", gsub("results", "", gsub("top50_", "", x[, unique(name)]))), "phers")
+            x |>
+                dplyr::select(id, "{new_name}" := phers)
+        }
+    ) |>
+    reduce(dplyr::full_join, by = "id")
+
     # cov, risk, symp, phers models
-    phers_names <- paste0("phers_", c("ridge_un", "lasso_un", "enet_un", "rf_un", "ridge_w", "lasso_w", "enet_w", "rf_w"))
+    phers_names <- c(
+        paste0("phers_", c("ridge_un", "lasso_un", "enet_un", "rf_un", "ridge_w", "lasso_w", "enet_w", "rf_w")),
+        names(two_step_simp)[names(two_step_simp) != "id"]
+    )
+    data <- left_join(data, two_step_simp, by = "id")
+    cli_progress_bar(total = length(phers_names))
     for (nam in phers_names) {
-        crsp_f <- paste0(keep_top_phecodes(unique(c(covariates, risk_factors, symptoms, phers_names[1]))), collapse = " + ")
+        crsp_f <- paste0(keep_top_phecodes(unique(c(covariates, risk_factors, symptoms, nam))), collapse = " + ")
         ## unweighted
         cascade_models[[paste0("crs_", nam, "_un")]] <- logistf::logistf(
             formula = paste0(outcome, " ~ ", crsp_f),
             data = data,
-            control = logistf.control(maxit = 100, maxstep = 0.5),
+            control = logistf.control(maxit = 10000, maxstep = 0.5),
             plcontrol = logistf.control(maxit = 10000, maxstep = 0.5),
             pl = FALSE
         ) |> aimTwo::betas_from_mod(intercept = TRUE)
@@ -621,7 +688,9 @@ for (i in seq_along(time_thresholds)) {
             plcontrol = logistf.control(maxit = 10000, maxstep = 0.5),
             pl = FALSE
         ) |> aimTwo::betas_from_mod(intercept = TRUE)
+        cli_progress_update()
     }
+    cli_progress_done()
 
     # correlation matrix
     phers_cor_mat <- cor(data[, ..phers_names])
