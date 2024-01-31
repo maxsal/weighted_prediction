@@ -341,21 +341,6 @@ two_step <- qread(glue(
     "mgi_{opt$outcome}_r{opt$matching_ratio}_results_list.qs",
 ))
 
-two_step_phers <- map(
-    seq_along(two_step),
-    \(i) {
-        calculate_phers(
-            pim = data,
-            weight_data = two_step[[i]],
-            id_var = "id",
-            trait_var = "phecode",
-            weight_var = "beta",
-            name = names(two_step)[i]
-        )[, t := stringr::str_match(names(two_step)[[i]], "t(.*?)_")[, 2]]
-    },
-    .progress = TRUE
-) |> set_names(names(two_step))
-
 
 #### CASCADE
 outcome_phecode <- opt$outcome
@@ -365,6 +350,35 @@ weight_var <- "ip_selection"
 for (i in seq_along(time_thresholds)) {
     cli_progress_step(glue("fitting phers for {opt$outcome} at t = {time_thresholds[i]}"))
     data <- mgi_tr_merged[[i]][group == "test", ]
+
+    ## two step
+    two_step_at_t <- which(map_chr(names(two_step), \(j) stringr::str_match(j, "t(.*?)_")[, 2]) == as.character(time_thresholds[i]))
+    two_step_now <- two_step[two_step_at_t]
+
+    two_step_phers <- map(
+        seq_along(two_step_now),
+        \(z) {
+            calculate_phers(
+                pim = data,
+                weight_data = two_step_now[[z]],
+                id_var = "id",
+                trait_var = "phecode",
+                weight_var = "beta",
+                name = names(two_step_now)[z]
+            )[, t := stringr::str_match(names(two_step_now)[z], "t(.*?)_")[, 2]]
+        },
+        .progress = TRUE
+    ) |> set_names(names(two_step_now))
+
+    two_step_simp <- map(
+        two_step_phers,
+        \(x) {
+            new_name <- paste0(gsub(paste0("t", time_thresholds[i], "_"), "", gsub("results", "", gsub("top50_", "", x[, unique(name)]))), "phers")
+            x |>
+                dplyr::select(id, "{new_name}" := phers)
+        }
+    ) |>
+        reduce(dplyr::full_join, by = "id")
 
     # prepare covariates
     covariates <- c("age_at_threshold", "female", "nhw")
@@ -645,21 +659,6 @@ for (i in seq_along(time_thresholds)) {
         weighted_enet = enet_w,
         weighted_rf = rf_w
     )
-
-
-    # two-step phers and crsp models
-    two_step_at_t <- which(map_chr(names(two_step), \(j) stringr::str_match(j, "t(.*?)_")[, 2]) == as.character(time_thresholds[i]))
-    two_step_now <- two_step_phers[two_step_at_t]
-
-    two_step_simp <- map(
-        two_step_now,
-        \(x) {
-            new_name <- paste0(gsub(paste0("t", time_thresholds[i], "_"), "", gsub("results", "", gsub("top50_", "", x[, unique(name)]))), "phers")
-            x |>
-                dplyr::select(id, "{new_name}" := phers)
-        }
-    ) |>
-    reduce(dplyr::full_join, by = "id")
 
     # cov, risk, symp, phers models
     phers_names <- c(
