@@ -140,7 +140,7 @@ last_dsb <- unique(restricted[restricted[, .I[which.max(dsb)], "id"][["V1"]]][, 
 mgi_demo <- Reduce(
     \(x, y) merge.data.table(x, y, by = "DeID_PatientID"),
     list(mgi_demo, first_dsb, last_dsb)
-)
+)[, length_followupx := round((last_dsbx - first_dsbx) / 365.25)]
 
 ###
 cancer_phecodesx <- fread("https://raw.githubusercontent.com/maxsal/public_data/main/phewas/cancer_phecodesx.csv")[
@@ -333,6 +333,8 @@ qsave(
     file = glue("data/private/mgi/{opt$mgi_version}/first_cancerx_{opt$mgi_version}.qs")
 )
 ###
+
+mgi_demo <- mgi_demo[!is.na(sex), ]
 
 qsave(
     mgi_demo,

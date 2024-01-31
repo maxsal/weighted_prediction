@@ -10,7 +10,7 @@ for (i in list.files("fn/", full.names = TRUE)) source(i)
 # optparse list ----------------------------------------------------------------
 option_list <- list(
     make_option("--outcome",
-        type = "character", default = "CA_101.1",
+        type = "character", default = "CA_101.6",
         help = "Outcome phecode [default = %default]"
     ),
     make_option("--mgi_version",
