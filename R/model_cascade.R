@@ -79,6 +79,8 @@ try_glmnet <- function(
                     )
                     if (mod$dev.ratio < 0) {
                         warning("dev.ratio < 0")
+                    } else if (mod$df == 0) {
+                        warning("df = 0")
                     } else {
                     return(mod)
                     }
@@ -104,8 +106,10 @@ try_glmnet <- function(
                         )
                         if (mod$dev.ratio < 0) {
                             warning("dev.ratio < 0")
+                        } else if (mod$df == 0) {
+                            warning("df = 0")
                         } else {
-                        return(mod)
+                            return(mod)
                         }
                     },
                     error = function(e) {
@@ -128,11 +132,13 @@ try_glmnet <- function(
                                 penalty.factor = as.numeric(unlist(dimnames(tmp_x)) != "weight"),
                                 ...
                         )
-                        if (mod$dev.ratio < 0) {
-                            warning("dev.ratio < 0")
-                        } else {
+                    if (mod$dev.ratio < 0) {
+                        warning("dev.ratio < 0")
+                    } else if (mod$df == 0) {
+                        warning("df = 0")
+                    } else {
                         return(mod)
-                        }
+                    }
                         },
                         error = function(e) {
                             message("Here's the original error message:")
@@ -152,11 +158,13 @@ try_glmnet <- function(
                                 maxit = maxit,
                                 penalty.factor = as.numeric(unlist(dimnames(tmp_x)) != "weight"),
                                 ...)
-                            if (mod$dev.ratio < 0) {
-                                warning("dev.ratio < 0")
-                            } else {
-                                return(mod)
-                            }
+                    if (mod$dev.ratio < 0) {
+                        warning("dev.ratio < 0")
+                    } else if (mod$df == 0) {
+                        warning("df = 0")
+                    } else {
+                        return(mod)
+                    }
                         })
                     })
 
@@ -668,6 +676,7 @@ for (i in seq_along(time_thresholds)) {
     data <- left_join(data, two_step_simp, by = "id")
     cli_progress_bar(total = length(phers_names))
     for (nam in phers_names) {
+        print(nam)
         crsp_f <- paste0(keep_top_phecodes(unique(c(covariates, risk_factors, symptoms, nam))), collapse = " + ")
         ## unweighted
         cascade_models[[paste0("crs_", nam, "_un")]] <- logistf::logistf(
@@ -690,6 +699,8 @@ for (i in seq_along(time_thresholds)) {
         cli_progress_update()
     }
     cli_progress_done()
+
+    nam <- "phers_enet_w"
 
     # correlation matrix
     phers_cor_mat <- cor(data[, ..phers_names])
