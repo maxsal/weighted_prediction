@@ -217,13 +217,14 @@ for (i in seq_along(time_thresholds)) {
     covariates <- c("age_at_threshold", "female", "nhw")
 
     risk_factor_table <- fread("data/public/dig_can_risk_factors.csv") # add to github
-    risk_factors <- risk_factor_table[outcome_phecode == outcome_phecode, unique(risk_factor_variable)]
+    outcome_phecode_copy <- outcome_phecode
+    risk_factors <- risk_factor_table[outcome_phecode == outcome_phecode_copy, unique(risk_factor_variable)]
     risk_factors[risk_factors == "alcohol_ever"] <- "drinker"
     risk_factors[risk_factors == "smoke_ever"] <- "smoker"
     risk_factors <- unique(risk_factors[risk_factors %in% names(data)])
 
     symptoms_table <- fread("data/public/dig_can_symptoms.csv") # add to github
-    symptoms <- symptoms_table[outcome_phecode == outcome_phecode & use == 1, unique(symptom_phecode)]
+    symptoms <- symptoms_table[outcome_phecode == outcome_phecode_copy & use == 1, unique(symptom_phecode)]
     symptoms <- symptoms[symptoms != ""]
     symptoms <- unique(symptoms[symptoms %in% names(data)])
 

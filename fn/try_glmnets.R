@@ -46,7 +46,7 @@ try_glmnets <- function(
                             dev.ratio = model$dev.ratio,
                             df = model$df,
                             n0_beta = sum(as.matrix(model$beta)[, 1] != 0),
-                            converge = ifelse(is.null(model$lambda), FALSE, TRUE)
+                            converge = ifelse(is.null(model$lambda) | is.infinite(model$lambda), FALSE, TRUE)
                         )
                     ), use.names = TRUE, fill = TRUE)
                 )
@@ -54,6 +54,16 @@ try_glmnets <- function(
         },
         warning = function(w) {
             warning(w)
+            model <- glmnet(
+                x = x,
+                y = y,
+                weights = weights,
+                alpha = alpha,
+                lambda = lambda,
+                family = family,
+                maxit = maxit,
+                ...
+            )
             list(
                 model = NA,
                 diag = rbindlist(list(
@@ -65,7 +75,7 @@ try_glmnets <- function(
                         screen = FALSE,
                         dev.ratio = model$dev.ratio,
                         df = model$df,
-                        converge = ifelse(is.infinite(model$lambda), FALSE, TRUE)
+                        converge = ifelse(is.infinite(model$lambda) | is.null(model$lambda), FALSE, TRUE)
                     )
                 ), use.names = TRUE, fill = TRUE)
             )
@@ -86,7 +96,7 @@ try_glmnets <- function(
                     maxit = maxit,
                     ...
                 )
-                if (model$dev.ratio < 0 | model$df == 0 | is.null(model$lambda)) {
+                if (model$dev.ratio < 0 | model$df == 0 | is.null(model$lambda) | is.infinite(model$lambda)) {
                     warning(
                         paste0("dev.ratio: ", model$dev.ratio, ", df: ", model$df, "; lambda: ", model$lambda, ".")
                     )
@@ -102,7 +112,7 @@ try_glmnets <- function(
                                 dev.ratio = model$dev.ratio,
                                 df = model$df,
                                 n0_beta = sum(as.matrix(model$beta)[, 1] != 0),
-                                converge = ifelse(is.null(model$lambda), FALSE, TRUE)
+                                converge = ifelse(is.infinite(model$lambda) | is.null(model$lambda), FALSE, TRUE)
                             )
                         ), use.names = TRUE, fill = TRUE)
                     )
@@ -110,6 +120,16 @@ try_glmnets <- function(
             },
             warning = function(w) {
                 warning(w)
+                model <- glmnet(
+                    x = x,
+                    y = y,
+                    weights = weights,
+                    alpha = alpha,
+                    lambda = lambda,
+                    family = family,
+                    maxit = maxit,
+                    ...
+                )
                 list(
                     model = NA,
                     diag = rbindlist(list(
@@ -120,7 +140,7 @@ try_glmnets <- function(
                             screen = FALSE,
                             dev.ratio = model$dev.ratio,
                             df = model$df,
-                            converge = ifelse(is.null(model$lambda), FALSE, TRUE)
+                            converge = ifelse(is.infinite(model$lambda) | is.null(model$lambda), FALSE, TRUE)
                         )
                     ), use.names = TRUE, fill = TRUE)
                 )
@@ -147,7 +167,7 @@ try_glmnets <- function(
                     maxit = maxit,
                     ...
                 )
-                if (model$dev.ratio < 0 | model$df == 0 | is.null(model$lambda)) {
+                if (model$dev.ratio < 0 | model$df == 0 | is.infinite(model$lambda) | is.null(model$lambda)) {
                     warning(
                         paste0("dev.ratio: ", model$dev.ratio, ", df: ", model$df, "; lambda: ", model$lambda, ".")
                     )
@@ -164,7 +184,7 @@ try_glmnets <- function(
                                 dev.ratio = model$dev.ratio,
                                 df = model$df,
                                 n0_beta = sum(as.matrix(model$beta)[, 1] != 0),
-                                converge = ifelse(is.null(model$lambda), FALSE, TRUE)
+                                converge = ifelse(is.infinite(model$lambda) | is.null(model$lambda), FALSE, TRUE)
                             )
                         ), use.names = TRUE, fill = TRUE)
                     )
@@ -172,6 +192,16 @@ try_glmnets <- function(
             },
             warning = function(w) {
                 warning(w)
+                model <- glmnet(
+                    x = new_x,
+                    y = y,
+                    weights = weights,
+                    alpha = alpha,
+                    lambda = lambda,
+                    family = family,
+                    maxit = maxit,
+                    ...
+                )
                 list(
                     model = NA,
                     diag = rbindlist(list(
@@ -183,7 +213,7 @@ try_glmnets <- function(
                             cor_cutoff = cor_cutoff,
                             dev.ratio = model$dev.ratio,
                             df = model$df,
-                            converge = ifelse(is.null(model$lambda), FALSE, TRUE)
+                            converge = ifelse(is.infinite(model$lambda) | is.null(model$lambda), FALSE, TRUE)
                         )
                     ), use.names = TRUE, fill = TRUE)
                 )
@@ -205,7 +235,7 @@ try_glmnets <- function(
                     maxit = maxit,
                     ...
                 )
-                if (model$dev.ratio < 0 | model$df == 0 | is.null(model$lambda)) {
+                if (model$dev.ratio < 0 | model$df == 0 | is.infinite(model$lambda) | is.null(model$lambda)) {
                     warning(
                         paste0("dev.ratio: ", model$dev.ratio, ", df: ", model$df, "; lambda: ", model$lambda, ".")
                     )
@@ -222,7 +252,7 @@ try_glmnets <- function(
                                 dev.ratio = model$dev.ratio,
                                 df = model$df,
                                 n0_beta = sum(as.matrix(model$beta)[, 1] != 0),
-                                converge = ifelse(is.null(model$lambda), FALSE, TRUE)
+                                converge = ifelse(is.infinite(model$lambda) | is.null(model$lambda), FALSE, TRUE)
                             )
                         ), use.names = TRUE, fill = TRUE)
                     )
@@ -230,6 +260,16 @@ try_glmnets <- function(
             },
             warning = function(w) {
                 warning(w)
+                model <- glmnet(
+                    x = new_x,
+                    y = y,
+                    weights = weights,
+                    alpha = alpha,
+                    lambda = alt_lambda,
+                    family = family,
+                    maxit = maxit,
+                    ...
+                )
                 list(
                     model = NA,
                     diag = rbindlist(list(
@@ -241,7 +281,7 @@ try_glmnets <- function(
                             cor_cutoff = cor_cutoff,
                             dev.ratio = model$dev.ratio,
                             df = model$df,
-                            converge = ifelse(is.null(model$lambda), FALSE, TRUE)
+                            converge = ifelse(is.infinite(model$lambda) | is.null(model$lambda), FALSE, TRUE)
                         )
                     ), use.names = TRUE, fill = TRUE)
                 )
@@ -264,7 +304,7 @@ try_glmnets <- function(
                     penalty.factor = as.numeric(unlist(dimnames(new_x_w)) != "weight"),
                     ...
                 )
-                if (model$dev.ratio < 0 | model$df == 0 | is.null(model$lambda) |
+                if (model$dev.ratio < 0 | model$df == 0 | is.infinite(model$lambda) | is.null(model$lambda) |
                     (length(names(which(as.matrix(model$beta)[, 1] != 0, useNames = TRUE))) == 1 &
                         "weight" %in% names(which(as.matrix(model$beta)[, 1] != 0, useNames = TRUE)))) {
                     warning(
@@ -283,7 +323,7 @@ try_glmnets <- function(
                                 dev.ratio = model$dev.ratio,
                                 df = model$df,
                                 n0_beta = sum(as.matrix(model$beta)[, 1] != 0),
-                                converge = ifelse(is.null(model$lambda), FALSE, TRUE)
+                                converge = ifelse(is.infinite(model$lambda) | is.null(model$lambda), FALSE, TRUE)
                             )
                         ), use.names = TRUE, fill = TRUE)
                     )
@@ -291,6 +331,17 @@ try_glmnets <- function(
             },
             warning = function(w) {
                 warning(w)
+                new_x_w <- cbind(as.matrix(x), weight = weights)
+                model <- glmnet(
+                    x = new_x_w,
+                    y = y,
+                    alpha = alpha,
+                    lambda = lambda,
+                    family = family,
+                    maxit = maxit,
+                    penalty.factor = as.numeric(unlist(dimnames(new_x_w)) != "weight"),
+                    ...
+                )
                 list(
                     model = NA,
                     diag = rbindlist(list(
@@ -302,7 +353,7 @@ try_glmnets <- function(
                             cor_cutoff = cor_cutoff,
                             dev.ratio = model$dev.ratio,
                             df = model$df,
-                            converge = ifelse(is.null(model$lambda), FALSE, TRUE),
+                            converge = ifelse(is.infinite(model$lambda) | is.null(model$lambda), FALSE, TRUE),
                             weight_only_predictor = TRUE
                         )
                     ), use.names = TRUE, fill = TRUE)
@@ -326,7 +377,7 @@ try_glmnets <- function(
                     penalty.factor = as.numeric(unlist(dimnames(new_x_w)) != "weight"),
                     ...
                 )
-                if (model$dev.ratio < 0 | model$df == 0 | is.null(model$lambda) |
+                if (model$dev.ratio < 0 | model$df == 0 | is.infinite(model$lambda) | is.null(model$lambda) |
                     (length(names(which(as.matrix(model$beta)[, 1] != 0, useNames = TRUE))) == 1 &
                         "weight" %in% names(which(as.matrix(model$beta)[, 1] != 0, useNames = TRUE)))) {
                     warning(
@@ -345,7 +396,7 @@ try_glmnets <- function(
                                 dev.ratio = model$dev.ratio,
                                 df = model$df,
                                 n0_beta = sum(as.matrix(model$beta)[, 1] != 0),
-                                converge = ifelse(is.null(model$lambda), FALSE, TRUE)
+                                converge = ifelse(is.infinite(model$lambda) | is.null(model$lambda), FALSE, TRUE)
                             )
                         ), use.names = TRUE, fill = TRUE)
                     )
@@ -353,6 +404,17 @@ try_glmnets <- function(
             },
             warning = function(w) {
                 warning(w)
+                new_x_w <- cbind(as.matrix(x), weight = weights)
+                model <- glmnet(
+                    x = new_x_w,
+                    y = y,
+                    alpha = alpha,
+                    lambda = alt_lambda,
+                    family = family,
+                    maxit = maxit,
+                    penalty.factor = as.numeric(unlist(dimnames(new_x_w)) != "weight"),
+                    ...
+                )
                 list(
                     model = NA,
                     diag = rbindlist(list(
@@ -364,7 +426,7 @@ try_glmnets <- function(
                             cor_cutoff = cor_cutoff,
                             dev.ratio = model$dev.ratio,
                             df = model$df,
-                            converge = ifelse(is.null(model$lambda), FALSE, TRUE),
+                            converge = ifelse(is.infinite(model$lambda) | is.null(model$lambda), FALSE, TRUE),
                             weight_only_predictor = TRUE
                         )
                     ), use.names = TRUE, fill = TRUE)
