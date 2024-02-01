@@ -55,170 +55,7 @@ cooccur_covs <- c("age_at_threshold", "female", "length_followup")
 file_paths <- get_files(mgi_version = opt$mgi_version)
 
 # functions --------------------------------------------------------------------
-try_glmnet <- function(
-    x,
-    y,
-    weights = NULL,
-    alpha = 1,
-    lambda = NULL,
-    alt_lambda = NULL,
-    family = "binomial",
-    maxit = 1e5,
-    ...) {
-            tryCatch(
-                {
-                    mod <- glmnet(
-                        x         = x,
-                        y         = y,
-                        weights   = weights,
-                        alpha     = alpha,
-                        lambda    = lambda,
-                        family    = family,
-                        maxit = maxit,
-                        ...
-                    )
-                    if (mod$dev.ratio < 0) {
-                        warning("dev.ratio < 0")
-                    } else if (mod$df == 0) {
-                        warning("df = 0")
-                    } else {
-                    return(mod)
-                    }
-                },
-                error = function(e) {
-                    message("Here's the original error message:")
-                    message(conditionMessage(e))
-                    return(NA)
-                },
-                warning = function(w) {
-                    message("Here's the original warning message:")
-                    message(conditionMessage(w))
-                    tryCatch({
-                        mod <- glmnet(
-                            x         = x,
-                            y         = y,
-                            weights   = weights,
-                            alpha     = alpha,
-                            lambda    = alt_lambda,
-                            family    = family,
-                        maxit = maxit,
-                            ...
-                        )
-                        if (mod$dev.ratio < 0) {
-                            warning("dev.ratio < 0")
-                        } else if (mod$df == 0) {
-                            warning("df = 0")
-                        } else {
-                            return(mod)
-                        }
-                    },
-                    error = function(e) {
-                        message("Here's the original error message:")
-                        message(conditionMessage(e))
-                        return(NA)
-                    },
-                    warning = function(w) {
-                        message("Here's the original warning message:")
-                        message(conditionMessage(w))
-                        tryCatch({
-                            tmp_x <- cbind(x, weight = weights)
-                            mod <- glmnet(
-                                x = tmp_x,
-                                y = y,
-                                alpha = alpha,
-                                lambda = lambda,
-                                family = family,
-                                maxit = maxit,
-                                penalty.factor = as.numeric(unlist(dimnames(tmp_x)) != "weight"),
-                                ...
-                        )
-                    if (mod$dev.ratio < 0) {
-                        warning("dev.ratio < 0")
-                    } else if (mod$df == 0) {
-                        warning("df = 0")
-                    } else {
-                        return(mod)
-                    }
-                        },
-                        error = function(e) {
-                            message("Here's the original error message:")
-                            message(conditionMessage(e))
-                            return(NA)
-                        },
-                        warning = function(w) {
-                            message("Here's the original warning message:")
-                            message(conditionMessage(w))
-                            tmp_x <- cbind(x, weight = weights)
-                            mod <- glmnet(
-                                x = tmp_x,
-                                y = y,
-                                alpha = alpha,
-                                lambda = alt_lambda,
-                                family = family,
-                                maxit = maxit,
-                                penalty.factor = as.numeric(unlist(dimnames(tmp_x)) != "weight"),
-                                ...)
-                    if (mod$dev.ratio < 0) {
-                        warning("dev.ratio < 0")
-                    } else if (mod$df == 0) {
-                        warning("df = 0")
-                    } else {
-                        return(mod)
-                    }
-                        })
-                    })
-
-                }
-            )
-                    }
-
-try_glmnet2 <- function(
-    x,
-    y,
-    weights = NULL,
-    alpha = 1,
-    lambda = NULL,
-    alt_lambda = NULL,
-    family = "binomial",
-    maxit = 1e5,
-    cor_cutoff = 0.25,
-    ...) {
-    tryCatch(
-        {
-            try_glmnet(
-                x = x,
-                y = y,
-                weights = weights,
-                alpha = alpha,
-                lambda = lambda,
-                alt_lambda = alt_lambda,
-                family = family,
-                maxit = maxit,
-                ...
-            )
-        },
-        warning = function(w) {
-            warning(w)
-            message("first pass failed. screening for correlated predictors and trying again.")
-            tmp_x <- as.data.table(x)
-            multi_values <- more_than_one_unique(tmp_x, names(tmp_x))
-            remove_these <- caret::findCorrelation(cor(tmp_x[, ..multi_values]), cutoff = cor_cutoff, names = TRUE)
-            use_these <- setdiff(multi_values, remove_these)
-            try_glmnet(
-                as.matrix(as.data.table(x)[, ..use_these]),
-                y,
-                weights = weights,
-                alpha = alpha,
-                lambda = lambda,
-                alt_lambda = alt_lambda,
-                family = family,
-                maxit = maxit,
-                ...
-            )
-        }
-    )
-}
-
+source("fn/try_glmnets.R")
 
 more_than_one_unique <- function(dt, var_names) {
     # Check if var_names are in the columns of dt
@@ -305,18 +142,6 @@ mgi_tr_merged <- lapply(
     }
 )
 names(mgi_tr_merged) <- glue("t{time_thresholds}_threshold")
-
-
-# data[, `:=` (
-#     race_eth = relevel(factor(fcase(
-#     race == "Caucasian" & ethn == "Non-Hispanic", "NHW",
-#     race == "African America" & ethn == "Non-Hispanic", "NHB",
-#     race == "Asian" & ethn == "Non-Hispanic", "NHA",
-#     ethn == "Hispanic", "Hisp",
-#     race %in% c("Native American") & ethn != "", "Other",
-#     default = "Unknown"
-#     )), ref = "NHW")
-# )]
 
 ### load two step
 calculate_phers <- function(
@@ -526,9 +351,11 @@ for (i in seq_along(time_thresholds)) {
         ]
     }
 
+    phers_models <- list()
+    glmnet_models_diag <- list()
     ## unweighted
     # ridge
-    ridge_un <- try_glmnet2(
+    ridge_un <- try_glmnets(
         x = as.matrix(data[, ..ex_vars]),
         y = data[, case],
         alpha = 0,
@@ -536,12 +363,16 @@ for (i in seq_along(time_thresholds)) {
         alt_lambda = hyperparameters[parameter == "ridge_lambda.1se", value],
         family = "binomial"
     )
-    ridge_un_pred_vars <- rownames(ridge_un$beta)
-    ridge_un_pred_vars[ridge_un_pred_vars == "weight"] <- weight_var
-    data[["phers_ridge_un"]] <- scale(predict(ridge_un, newx = as.matrix(data[, ..ridge_un_pred_vars]), type = "response"))[, 1]
+    if ("glmnet" %in% class(ridge_un$model)) {
+        phers_models[["unweighted_ridge"]] <- ridge_un$model
+        ridge_un_pred_vars <- rownames(ridge_un$model$beta)
+        ridge_un_pred_vars[ridge_un_pred_vars == "weight"] <- weight_var
+        data[["phers_ridge_un"]] <- scale(predict(ridge_un$model, newx = as.matrix(data[, ..ridge_un_pred_vars]), type = "response"))[, 1]
+    }
+    glmnet_models_diag[["unweighted_ridge"]] <- ridge_un$diag
 
     # lasso
-    lasso_un <- try_glmnet2(
+    lasso_un <- try_glmnets(
         x = as.matrix(data[, ..ex_vars]),
         y = data[, case],
         alpha = 1,
@@ -549,12 +380,16 @@ for (i in seq_along(time_thresholds)) {
         alt_lambda = hyperparameters[parameter == "lasso_lambda.1se", value],
         family = "binomial"
     )
-    lasso_un_pred_vars <- rownames(lasso_un$beta)
-    lasso_un_pred_vars[lasso_un_pred_vars == "weight"] <- weight_var
-    data[["phers_lasso_un"]] <- scale(predict(lasso_un, newx = as.matrix(data[, ..lasso_un_pred_vars]), type = "response"))[, 1]
+    if ("glmnet" %in% class(lasso_un$model)) {
+        phers_models[["unweighted_lasso"]] <- lasso_un$model
+        lasso_un_pred_vars <- rownames(lasso_un$model$beta)
+        lasso_un_pred_vars[lasso_un_pred_vars == "weight"] <- weight_var
+        data[["phers_lasso_un"]] <- scale(predict(lasso_un$model, newx = as.matrix(data[, ..lasso_un_pred_vars]), type = "response"))[, 1]
+    }
+    glmnet_models_diag[["unweighted_lasso"]] <- lasso_un$diag
 
     # enet
-    enet_un <- try_glmnet2(
+    enet_un <- try_glmnets(
         x = as.matrix(data[, ..ex_vars]),
         y = data[, case],
         alpha = hyperparameters[parameter == "enet_alpha", value],
@@ -562,9 +397,13 @@ for (i in seq_along(time_thresholds)) {
         alt_lambda = hyperparameters[parameter == "enet_lambda.1se", value],
         family = "binomial"
     )
-    enet_un_pred_vars <- rownames(enet_un$beta)
-    enet_un_pred_vars[enet_un_pred_vars == "weight"] <- weight_var
-    data[["phers_enet_un"]] <- scale(predict(enet_un, newx = as.matrix(data[, ..enet_un_pred_vars]), type = "response"))[, 1]
+    if ("glmnet" %in% class(enet_un$model)) {
+        phers_models[["unweighted_enet"]] <- enet_un$model
+        enet_un_pred_vars <- rownames(enet_un$model$beta)
+        enet_un_pred_vars[enet_un_pred_vars == "weight"] <- weight_var
+        data[["phers_enet_un"]] <- scale(predict(enet_un$model, newx = as.matrix(data[, ..enet_un_pred_vars]), type = "response"))[, 1]
+    }
+    glmnet_models_diag[["unweighted_enet"]] <- enet_un$diag
 
     # rf
     f <- as.formula(paste0("case ~ ", paste0(ex_vars, collapse = " + ")))
@@ -578,11 +417,12 @@ for (i in seq_along(time_thresholds)) {
         importance    = "permutation",
         write.forest  = TRUE
     )
+    phers_models[["unweighted_rf"]] <- rf_un
     data[["phers_rf_un"]] <- scale(predict(rf_un, data = data |> select(any_of(ex_vars)), type = "response")$prediction)[, 1]
 
     ## weighted
     # ridge
-    ridge_w <- try_glmnet2(
+    ridge_w <- try_glmnets(
         x = as.matrix(data[!is.na(get(weight_var)), ..ex_vars]),
         y = data[!is.na(get(weight_var)), case],
         alpha = 0,
@@ -591,12 +431,16 @@ for (i in seq_along(time_thresholds)) {
         alt_lambda = hyperparameters[parameter == "wridge_lambda.1se", value],
         family = "binomial"
     )
-    ridge_w_pred_vars <- rownames(ridge_w$beta)
-    ridge_w_pred_vars[ridge_w_pred_vars == "weight"] <- weight_var
-    data[["phers_ridge_w"]] <- scale(predict(ridge_w, newx = as.matrix(data[!is.na(get(weight_var)), ..ridge_w_pred_vars]), type = "response"))[, 1]
+    if ("glmnet" %in% class(ridge_w$model)) {
+        phers_models[["weighted_ridge"]] <- ridge_w$model
+        ridge_w_pred_vars <- rownames(ridge_w$model$beta)
+        ridge_w_pred_vars[ridge_w_pred_vars == "weight"] <- weight_var
+        data[["phers_ridge_w"]] <- scale(predict(ridge_w$model, newx = as.matrix(data[!is.na(get(weight_var)), ..ridge_w_pred_vars]), type = "response"))[, 1]
+    }
+    glmnet_models_diag[["weighted_ridge"]] <- ridge_w$diag
 
     # lasso
-    lasso_w <- try_glmnet2(
+    lasso_w <- try_glmnets(
         x = as.matrix(data[!is.na(get(weight_var)), ..ex_vars]),
         y = data[!is.na(get(weight_var)), case],
         alpha = 1,
@@ -605,12 +449,16 @@ for (i in seq_along(time_thresholds)) {
         alt_lambda = hyperparameters[parameter == "wlasso_lambda.1se", value],
         family = "binomial"
     )
-    lasso_w_pred_vars <- rownames(lasso_w$beta)
-    lasso_w_pred_vars[lasso_w_pred_vars == "weight"] <- weight_var
-    data[["phers_lasso_w"]] <- scale(predict(lasso_w, newx = as.matrix(data[!is.na(get(weight_var)), ..lasso_w_pred_vars]), type = "response"))[, 1]
+    if ("glmnet" %in% class(lasso_w$model)) {
+        phers_models[["weighted_lasso"]] <- lasso_w$model
+        lasso_w_pred_vars <- rownames(lasso_w$model$beta)
+        lasso_w_pred_vars[lasso_w_pred_vars == "weight"] <- weight_var
+        data[["phers_lasso_w"]] <- scale(predict(lasso_w$model, newx = as.matrix(data[!is.na(get(weight_var)), ..lasso_w_pred_vars]), type = "response"))[, 1]
+    }
+    glmnet_models_diag[["weighted_lasso"]] <- lasso_w$diag
 
     # enet
-    enet_w <- try_glmnet2(
+    enet_w <- try_glmnets(
         x = as.matrix(data[!is.na(get(weight_var)), ..ex_vars]),
         y = data[!is.na(get(weight_var)), case],
         alpha = hyperparameters[parameter == "wenet_alpha", value],
@@ -620,9 +468,13 @@ for (i in seq_along(time_thresholds)) {
         weight_as_pred = TRUE,
         family = "binomial"
     )
-    enet_w_pred_vars <- rownames(enet_w$beta)
-    enet_w_pred_vars[enet_w_pred_vars == "weight"] <- weight_var
-    data[["phers_enet_w"]] <- scale(predict(enet_w, newx = as.matrix(data[!is.na(get(weight_var)), ..enet_w_pred_vars]), type = "response"))[, 1]
+    if ("glmnet" %in% class(enet_w$model)) {
+        phers_models[["weighted_enet"]] <- enet_w$model
+        enet_w_pred_vars <- rownames(enet_w$model$beta)
+        enet_w_pred_vars[enet_w_pred_vars == "weight"] <- weight_var
+        data[["phers_enet_w"]] <- scale(predict(enet_w$model, newx = as.matrix(data[!is.na(get(weight_var)), ..enet_w_pred_vars]), type = "response"))[, 1]
+    }
+    glmnet_models_diag[["weighted_enet"]] <- enet_w$diag
 
     # rf
     rf_w <- ranger(
@@ -636,42 +488,14 @@ for (i in seq_along(time_thresholds)) {
         write.forest  = TRUE,
         case.weights  = data[!is.na(get(weight_var)), get(weight_var)]
     )
+    phers_models[["weighted_rf"]] <- rf_w
     data[["phers_rf_w"]] <- scale(predict(rf_w, data = data[!is.na(get(weight_var)), ] |> select(any_of(ex_vars)), type = "response")$prediction)[, 1]
 
-
-    # ### for EACH phers, also obtain fitted (standardized) predictions for use in
-    # ### following section
-    # cbind(data, rf_w_pred = rf_w_pred)
-    # phers_name <- "rf_w_pred"
-    # crsp_f <- paste0(unique(c(cov_f, risk_f, symptoms_f, phers_name)), collapse = " + ")
-    # ### need to add models that incorporate PheRSs
-    # full_mod <- logistf::logistf(
-    #     formula = paste0(outcome, " ~ ", crsp_f),
-    #     data = cbind(data, rf_w_pred = rf_w_pred),
-    #     control = logistf.control(maxit = 200, maxstep = 0.5)
-    # )
-
-    # covariates, risk factors, symptoms, phers SEVERAL PER OUTCOME
-    # crsp_f <- paste0(crs_f, " + ", phers_f)
-    # must predict phers_f and add as covariate
-    ## unweighted
-    ## weighted
-
-    ## save models
-    phers_models <- list(
-        unweighted_ridge = ridge_un,
-        unweighted_lasso = lasso_un,
-        unweighted_enet = enet_un,
-        unweighted_rf = rf_un,
-        weighted_ridge = ridge_w,
-        weighted_lasso = lasso_w,
-        weighted_enet = enet_w,
-        weighted_rf = rf_w
-    )
-
     # cov, risk, symp, phers models
+    phers_names <- paste0("phers_", c("ridge_un", "lasso_un", "enet_un", "rf_un", "ridge_w", "lasso_w", "enet_w", "rf_w"))
+    phers_names <- phers_names[phers_names %in% names(data)]
     phers_names <- c(
-        paste0("phers_", c("ridge_un", "lasso_un", "enet_un", "rf_un", "ridge_w", "lasso_w", "enet_w", "rf_w")),
+        phers_names,
         names(two_step_simp)[names(two_step_simp) != "id"]
     )
     data <- left_join(data, two_step_simp, by = "id")
@@ -740,6 +564,14 @@ for (i in seq_along(time_thresholds)) {
         file = glue(
             "results/mgi/{opt$mgi_version}/{opt$outcome}/",
             "mgi_{opt$mgi_version}_{opt$outcome}_t{time_thresholds[i]}_phers_models.qs"
+        )
+    )
+
+    qsave(
+        glmnet_models_diag,
+        file = glue(
+            "results/mgi/{opt$mgi_version}/{opt$outcome}/",
+            "mgi_{opt$mgi_version}_{opt$outcome}_t{time_thresholds[i]}_glmnet_models_diag.qs"
         )
     )
 
