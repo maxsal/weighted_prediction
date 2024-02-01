@@ -11,7 +11,7 @@ for (i in list.files("fn/", full.names = TRUE)) source(i)
 # optparse list ----------------------------------------------------------------
 option_list <- list(
     make_option("--outcome",
-        type = "character", default = "CA_101.6",
+        type = "character", default = "CA_101.8",
         help = "Outcome phecode [default = %default]"
     ),
     make_option("--mgi_version",
@@ -269,24 +269,27 @@ for (i in seq_along(time_thresholds)) {
     ) |> aimTwo::betas_from_mod(intercept = TRUE)
 
     # symptoms ONCE PER OUTCOME
-    symptoms <- more_than_one_unique(data, symptoms) |>
-        keep_top_phecodes()
-    symptoms_f <- paste0(symptoms, collapse = " + ")
-    ## unweighted
-    symptoms_un <- logistf::logistf(
-        formula = paste0(outcome, " ~ ", symptoms_f),
-        data = data,
-        control = logistf.control(maxit = 100, maxstep = 0.5),
-        plcontrol = logistf.control(maxit = 10000, maxstep = 0.5)
-    ) |> aimTwo::betas_from_mod(intercept = TRUE)
-    ## weighted
-    symptoms_w <- logistf::logistf(
-        formula = paste0(outcome, " ~ ", symptoms_f),
-        data = data[!is.na(get(weight_var)), ],
-        weights = data[!is.na(get(weight_var)), ][[weight_var]],
-        control = logistf.control(maxit = 100, maxstep = 0.5),
-        plcontrol = logistf.control(maxit = 10000, maxstep = 0.5)
-    ) |> aimTwo::betas_from_mod(intercept = TRUE)
+    if (length(symptoms) != 0) {
+            symptoms <- more_than_one_unique(data, symptoms) |>
+                keep_top_phecodes()
+            symptoms_f <- paste0(symptoms, collapse = " + ")
+            ## unweighted
+            symptoms_un <- logistf::logistf(
+                formula = paste0(outcome, " ~ ", symptoms_f),
+                data = data,
+                control = logistf.control(maxit = 100, maxstep = 0.5),
+                plcontrol = logistf.control(maxit = 10000, maxstep = 0.5)
+            ) |> aimTwo::betas_from_mod(intercept = TRUE)
+            ## weighted
+            symptoms_w <- logistf::logistf(
+                formula = paste0(outcome, " ~ ", symptoms_f),
+                data = data[!is.na(get(weight_var)), ],
+                weights = data[!is.na(get(weight_var)), ][[weight_var]],
+                control = logistf.control(maxit = 100, maxstep = 0.5),
+                plcontrol = logistf.control(maxit = 10000, maxstep = 0.5)
+            ) |> aimTwo::betas_from_mod(intercept = TRUE)
+    }
+
 
 
     ## covarariates + risk factors
@@ -312,11 +315,15 @@ for (i in seq_along(time_thresholds)) {
         covariates_weighted = cov_w,
         risk_factors_unweighted = risk_un,
         risk_factors_weighted = risk_w,
-        symptoms_unweighted                 = symptoms_un,
-        symptoms_weighted                   = symptoms_w,
-        covariates_risk_factors__unweighted = cov_risk_un,
-        covariates_risk_factors__weighted   = cov_risk_w
+        covariates_risk_factors_unweighted = cov_risk_un,
+        covariates_risk_factors_weighted   = cov_risk_w
     )
+    if (length(symptoms) != 0) {
+        cascade_models <- c(cascade_models, list(
+            symptoms_unweighted = symptoms_un,
+            symptoms_weighted   = symptoms_w
+        ))
+    }
 
     ### THESE ARE SEVERAL PER OUTCOME
     # phers SEVERAL PER OUTCOME
@@ -523,25 +530,27 @@ for (i in seq_along(time_thresholds)) {
             pl = FALSE
         ) |> aimTwo::betas_from_mod(intercept = TRUE)
 
-        crsp_f <- paste0(keep_top_phecodes(unique(c(covariates, risk_factors, symptoms, nam))), collapse = " + ")
-        ## unweighted
-        cascade_models[[paste0("crs_", nam, "_un")]] <- logistf::logistf(
-            formula = paste0(outcome, " ~ ", crsp_f),
-            data = data,
-            control = logistf.control(maxit = 10000, maxstep = 0.5),
-            plcontrol = logistf.control(maxit = 10000, maxstep = 0.5),
-            pl = FALSE
-        ) |> aimTwo::betas_from_mod(intercept = TRUE)
+        if (length(symptoms) != 0) {
+            crsp_f <- paste0(keep_top_phecodes(unique(c(covariates, risk_factors, symptoms, nam))), collapse = " + ")
+            ## unweighted
+            cascade_models[[paste0("crs_", nam, "_un")]] <- logistf::logistf(
+                formula = paste0(outcome, " ~ ", crsp_f),
+                data = data,
+                control = logistf.control(maxit = 10000, maxstep = 0.5),
+                plcontrol = logistf.control(maxit = 10000, maxstep = 0.5),
+                pl = FALSE
+            ) |> aimTwo::betas_from_mod(intercept = TRUE)
 
-        ## weighted
-        cascade_models[[paste0("crs_", nam, "_w")]] <- logistf::logistf(
-            formula = paste0(outcome, " ~ ", crsp_f),
-            data = data[!is.na(get(weight_var)), ],
-            weights = data[!is.na(get(weight_var)), ][[weight_var]],
-            control = logistf.control(maxit = 10000, maxstep = 0.5),
-            plcontrol = logistf.control(maxit = 10000, maxstep = 0.5),
-            pl = FALSE
-        ) |> aimTwo::betas_from_mod(intercept = TRUE)
+            ## weighted
+            cascade_models[[paste0("crs_", nam, "_w")]] <- logistf::logistf(
+                formula = paste0(outcome, " ~ ", crsp_f),
+                data = data[!is.na(get(weight_var)), ],
+                weights = data[!is.na(get(weight_var)), ][[weight_var]],
+                control = logistf.control(maxit = 10000, maxstep = 0.5),
+                plcontrol = logistf.control(maxit = 10000, maxstep = 0.5),
+                pl = FALSE
+            ) |> aimTwo::betas_from_mod(intercept = TRUE)
+        }
         cli_progress_update()
     }
     cli_progress_done()
