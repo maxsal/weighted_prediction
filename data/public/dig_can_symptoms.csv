@@ -1,5 +1,5 @@
 ﻿outcome,outcome_phecode,symptom_description,symptom_phecode,phecode_description,use,source_1
-Liver cancer,CA_101.6,Discomfort in the upper abdomen on the right side,GI_527,Abdominal pain,0,https://www.cdc.gov/cancer/liver/index.htm
+Liver cancer,CA_101.6,Discomfort in the upper abdomen on the right side,GI_527,Abdominal pain,1,https://www.cdc.gov/cancer/liver/index.htm
 Liver cancer,CA_101.6,A swollen abdomen,GI_556.3,"Abdominal or pelvic swelling, mass, or lump",0,https://www.cdc.gov/cancer/liver/index.htm
 Liver cancer,CA_101.6,A hard lump on the right side just below the rib cage,GI_556.3,"Abdominal or pelvic swelling, mass, or lump",0,https://www.cdc.gov/cancer/liver/index.htm
 Liver cancer,CA_101.6,Pain in right shoulder blade or back,MS_713.31,Pain in shoulder,0,https://www.cdc.gov/cancer/liver/index.htm
@@ -7,7 +7,7 @@ Liver cancer,CA_101.6,Pain in right shoulder blade or back,MS_718,Back pain,0,ht
 Liver cancer,CA_101.6,Jaudince,SS_814,Jaundice,0,https://www.cdc.gov/cancer/liver/index.htm
 Liver cancer,CA_101.6,Unusual tiredness,SS_807,Fatigue,0,https://www.cdc.gov/cancer/liver/index.htm
 Liver cancer,CA_101.6,Nausea and vomiting,GI_528.2,Nausea and vomiting,0,https://www.cdc.gov/cancer/liver/index.htm
-Liver cancer,CA_101.6,Weight loss for no known reason,EM_230.21,Abnormal weight loss,1,https://www.cdc.gov/cancer/liver/index.htm
+Liver cancer,CA_101.6,Weight loss for no known reason,EM_230.21,Abnormal weight loss,0,https://www.cdc.gov/cancer/liver/index.htm
 Liver cancer,CA_101.6,Loss of appetite,,,0,https://www.cdc.gov/cancer/liver/index.htm
 Colorectal cancer,CA_101.41,A change in bowel habits,,,0,https://www.cdc.gov/cancer/colorectal/basic_info/symptoms.htm
 Colorectal cancer,CA_101.41,Blood in or on your stool (bowel movement),GI_557.2,Blood in stool,0,https://www.cdc.gov/cancer/colorectal/basic_info/symptoms.htm
