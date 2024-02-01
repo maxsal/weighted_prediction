@@ -266,7 +266,7 @@ try_glmnets <- function(
                 )
                 if (model$dev.ratio < 0 | model$df == 0 | is.null(model$lambda) |
                     (length(names(which(as.matrix(model$beta)[, 1] != 0, useNames = TRUE))) == 1 &
-                        "weight" == names(which(as.matrix(model$beta)[, 1] != 0, useNames = TRUE)))) {
+                        "weight" %in% names(which(as.matrix(model$beta)[, 1] != 0, useNames = TRUE)))) {
                     warning(
                         paste0("dev.ratio: ", model$dev.ratio, ", df: ", model$df, "; lambda: ", model$lambda, ".")
                     )
@@ -328,7 +328,7 @@ try_glmnets <- function(
                 )
                 if (model$dev.ratio < 0 | model$df == 0 | is.null(model$lambda) |
                     (length(names(which(as.matrix(model$beta)[, 1] != 0, useNames = TRUE))) == 1 &
-                        "weight" == names(which(as.matrix(model$beta)[, 1] != 0, useNames = TRUE)))) {
+                        "weight" %in% names(which(as.matrix(model$beta)[, 1] != 0, useNames = TRUE)))) {
                     warning(
                         paste0("dev.ratio: ", model$dev.ratio, ", df: ", model$df, "; lambda: ", model$lambda, ".")
                     )
