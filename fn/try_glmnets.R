@@ -419,7 +419,7 @@ try_glmnets <- function(
                     model = NA,
                     diag = rbindlist(list(
                         out[["diag"]], data.table(
-                            class = 5,
+                            class = 6,
                             lambda = "alternate",
                             weight = "as_predictor",
                             screen = TRUE,

@@ -11,7 +11,7 @@ for (i in list.files("fn/", full.names = TRUE)) source(i)
 # optparse list ----------------------------------------------------------------
 option_list <- list(
     make_option("--outcome",
-        type = "character", default = "CA_101.8",
+        type = "character", default = "CA_101.6",
         help = "Outcome phecode [default = %default]"
     ),
     make_option("--mgi_version",
@@ -218,7 +218,7 @@ for (i in seq_along(time_thresholds)) {
 
     risk_factor_table <- fread("data/public/dig_can_risk_factors.csv") # add to github
     outcome_phecode_copy <- outcome_phecode
-    risk_factors <- risk_factor_table[outcome_phecode == outcome_phecode_copy, unique(risk_factor_variable)]
+    risk_factors <- risk_factor_table[outcome_phecode == outcome_phecode_copy & use == 1, unique(risk_factor_variable)]
     risk_factors[risk_factors == "alcohol_ever"] <- "drinker"
     risk_factors[risk_factors == "smoke_ever"] <- "smoker"
     risk_factors <- unique(risk_factors[risk_factors %in% names(data)])
@@ -471,7 +471,7 @@ for (i in seq_along(time_thresholds)) {
         y = data[!is.na(get(weight_var)), case],
         alpha = hyperparameters[parameter == "wenet_alpha", value],
         weights = data[!is.na(get(weight_var)), get(weight_var)],
-        lambda = hyperparameters[parameter == "wenet_lambda.1se", value],
+        lambda = hyperparameters[parameter == "wenet_lambda.min", value],
         alt_lambda = hyperparameters[parameter == "wenet_lambda.1se", value],
         weight_as_pred = TRUE,
         family = "binomial"
