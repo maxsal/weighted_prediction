@@ -587,4 +587,4 @@ for (i in seq_along(time_thresholds)) {
 
 }
 
-cli_alert_success("Done!")
+cli_alert_success("Done! 🥳")
